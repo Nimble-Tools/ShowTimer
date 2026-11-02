@@ -51,6 +51,51 @@ test.describe("links to the project", () => {
     await expect(link).toBeVisible();
   });
 
+  test("keeps the icon hidden through a scheduled start and over time", async ({ page, timer }) => {
+    await timer.open();
+    const link = page.locator("#github-link");
+
+    await timer.scheduleAt("10:01");
+    await timer.expectState("waiting");
+    await expect(link).toBeVisible();
+
+    await timer.advance(60 * SECOND);
+    await timer.expectState("running");
+    await expect(link).toBeHidden();
+
+    await timer.advance(6 * 60 * SECOND);
+    await expect(page.locator("body")).toHaveClass(/overtime/);
+    await page.mouse.move(100, 100);
+    await page.mouse.move(24, 24);
+    await expect(link).toBeHidden();
+  });
+
+  test("a right click doesn't leave the icon focused for a remote", async ({ page, timer }) => {
+    await timer.open();
+    const link = page.locator("#github-link");
+    await link.click({ button: "right" });
+    await expect(link).not.toBeFocused();
+  });
+
+  test("a click doesn't leave the issues link focused for a remote", async ({ context, timer }) => {
+    await context.route(`${REPO}**`, (route) => route.fulfill({ contentType: "text/html", body: "" }));
+    await timer.open();
+    await timer.openConfig();
+    const link = timer.configDialog.getByRole("link", { name: ISSUES });
+
+    const [tab] = await Promise.all([context.waitForEvent("page"), link.click()]);
+
+    await expect(tab).toHaveURL(ISSUES);
+    await expect(link).not.toBeFocused();
+  });
+
+  test("keyboard users can still focus the icon", async ({ page, timer }) => {
+    await timer.open();
+    const link = page.locator("#github-link");
+    await link.focus();
+    await expect(link).toBeFocused();
+  });
+
   test("keeps the icon out of the tab order while the timer runs", async ({ page, timer }) => {
     await timer.open();
     const link = page.locator("#github-link");

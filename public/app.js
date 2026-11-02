@@ -64,7 +64,6 @@ const els = {
   reset: $("reset"),
   fullscreen: $("fullscreen"),
   configButton: $("config-button"),
-  githubLink: $("github-link"),
   configDialog: $("config-dialog"),
   configForm: $("config-form"),
   configDuration: $("config-duration"),
@@ -608,9 +607,11 @@ els.controls.addEventListener("click", (event) => {
   const control = event.target.closest("button, summary");
   if (control && event.detail > 0) control.blur();
 });
-els.githubLink.addEventListener("click", (event) => {
-  if (event.detail > 0) els.githubLink.blur();
-});
+// The same goes for links, with any mouse button. Stopping the press from
+// focusing them doesn't stop them opening.
+document.querySelectorAll("a").forEach((link) =>
+  link.addEventListener("mousedown", (event) => event.preventDefault())
+);
 
 function toggleFullscreen() {
   if (document.fullscreenElement) {
