@@ -23,6 +23,26 @@ describe("styleTimeline", () => {
     ]);
   });
 
+  it("leaves Wrap it up! out of a talk no longer than its start", () => {
+    for (const duration of [1, 2]) {
+      assert.deepEqual(summary(defaultStyles(), duration), [
+        ["inactive", Infinity, duration + 5],
+        ["starting-soon", duration + 5, duration],
+        ["active", duration, 0],
+        ["overtime", 0, -60],
+      ]);
+    }
+  });
+
+  it("starts a style that takes over at the talk's start, not its stored start", () => {
+    assert.deepEqual(summary(without(defaultStyles(), "active"), 1), [
+      ["inactive", Infinity, 6],
+      ["starting-soon", 6, 1],
+      ["wrap-it-up", 1, 0],
+      ["overtime", 0, -60],
+    ]);
+  });
+
   it("agrees with resolveStyle at both ends of every section", () => {
     const styles = [...defaultStyles(), custom("fixed", -5), custom("tenth", 0, { start: { expression: "$duration / 10" } })];
     for (const { style, fromMs, toMs } of sections(styles)) {
@@ -73,16 +93,6 @@ describe("styleTimeline", () => {
       ["starting-soon", 25, 20],
       ["active", 20, 2],
       ["wrap-it-up", 2, 0],
-      ["overtime", 0, -60],
-    ]);
-  });
-
-  it("orders by effective start when a fixed start passes a short duration", () => {
-    assert.deepEqual(summary(defaultStyles(), 1), [
-      ["inactive", Infinity, 6],
-      ["starting-soon", 6, 2],
-      ["wrap-it-up", 2, 1],
-      ["active", 1, 0],
       ["overtime", 0, -60],
     ]);
   });
@@ -173,7 +183,7 @@ describe("styleTimeline", () => {
   });
 
   it("doesn't cut a section of exactly the limit", () => {
-    const [, ten] = sections([...fallback(), custom("ten", 10)]);
+    const [, ten] = sections([...fallback(), custom("ten", 10)], 10);
     assert.equal(ten.cut, false);
     assert.equal(ten.weight, Math.sqrt(10));
   });

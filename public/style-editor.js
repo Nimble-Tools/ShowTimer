@@ -16,6 +16,7 @@ import {
   startMinutes,
   styleTimeline,
   styleToCss,
+  styleWarnings,
 } from "./styles-core.js";
 import { EFFECT_TYPES, MAX_EFFECT_SECONDS, describeEffect, newEffect, parseEffectSeconds } from "./effects-core.js";
 
@@ -48,6 +49,7 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     start: $("style-start"),
     plusDuration: $("style-plus-duration"),
     startHint: $("style-start-hint"),
+    startWarning: $("style-start-warning"),
     startError: $("style-start-error"),
     fallbackHint: $("style-fallback-hint"),
     background: $("style-background"),
@@ -135,8 +137,9 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
   function renderList() {
     const duration = getDurationMinutes();
     renderTimeline(duration);
+    const warnings = styleWarnings(getStyles(), duration);
     els.list.replaceChildren(
-      ...sortStylesForDisplay(getStyles(), duration).map((style) => {
+      ...sortStylesForDisplay(getStyles(), duration).map((style, index) => {
         const item = document.createElement("li");
         item.className = "style-item";
         item.dataset.styleId = style.id;
@@ -163,6 +166,18 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
         start.textContent = describeStart(style, duration);
 
         row.append(swatch, name, start);
+
+        const warning = warnings.get(style.id);
+        if (warning) {
+          const note = document.createElement("span");
+          note.className = "style-warning";
+          // Not from the style's id: an imported one can contain spaces, which would split the reference.
+          note.id = `style-warning-${index}`;
+          note.textContent = warning;
+          row.append(note);
+          // The row's label replaces its text for screen readers.
+          row.setAttribute("aria-describedby", note.id);
+        }
 
         const toggleLabel = document.createElement("label");
         toggleLabel.className = "checkbox";
@@ -340,6 +355,9 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     els.sizeValue.textContent = `${editing.sizePercent}%`;
     els.startHint.textContent =
       editing.start === null ? "" : `Starts at ${describeStart(editing, duration)} with the current duration.`;
+    // In list order, as ties depend on it; a new style goes at the end.
+    const draft = isNew ? [...getStyles(), editing] : getStyles().map((style) => (style.id === editing.id ? editing : style));
+    els.startWarning.textContent = styleWarnings(draft, duration).get(editing.id) ?? "";
   }
 
   function openEditor(id) {

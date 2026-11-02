@@ -7,6 +7,9 @@
 // the closest start on either side of zero wins. Before a scheduled timer
 // begins, the distance is the duration plus the time until it starts, so a
 // style that starts at "duration + 5" turns on 5 minutes before the start.
+// Only a start of the duration plus or minus some minutes can do that. Any
+// other start past the duration is about the end of the talk, so it starts
+// with the talk at the earliest, and only if it's still the closest to zero.
 //
 // The Inactive style has no start; it applies whenever no other style does
 // (idle, a start far away, or past every negative style).
@@ -329,6 +332,18 @@ export function startMinutes(style, durationMinutes) {
   return style.start.plusDuration ? durationMinutes + style.start.minutes : style.start.minutes;
 }
 
+/** Whether a start is measured from the start of the talk: the duration plus or minus a fixed number of minutes. */
+function followsDuration({ start }) {
+  if (start.expression === undefined) return start.plusDuration;
+  const offsetAt = (duration) => evaluateStartExpression(start.expression, duration) - duration;
+  return Math.abs(offsetAt(60) - offsetAt(120)) < 1e-6;
+}
+
+/** Whether a style's start is past the duration, but it can't show before the talk begins. */
+function startsWithTalk(style, durationMinutes) {
+  return startMinutes(style, durationMinutes) > durationMinutes && !followsDuration(style);
+}
+
 /**
  * Which style applies with `remainingMs` until zero (negative when over time;
  * Infinity when idle). Returns the style (or null if none is enabled) and the
@@ -339,17 +354,24 @@ export function resolveStyle(styles, remainingMs, durationMinutes) {
   const fallback = styles.find((style) => style.enabled && style.start === null) ?? null;
   const timed = styles
     .filter((style) => style.enabled && style.start !== null)
-    .map((style) => ({ style, at: startMinutes(style, durationMinutes) * MINUTE }))
+    .map((style) => {
+      const stored = startMinutes(style, durationMinutes) * MINUTE;
+      return { style, stored, at: startsWithTalk(style, durationMinutes) ? durationMinutes * MINUTE : stored };
+    })
     // An expression can be undefined for some durations (e.g. dividing by zero).
     .filter((t) => Number.isFinite(t.at));
   // Closest to zero first on each side; a stable sort keeps list order for ties.
-  const before = timed.filter((t) => t.at > 0).sort((a, b) => a.at - b.at);
+  // A style held back to the talk's start still ranks by the start it has, so
+  // it gives way to any closer style, while `at` says when it can begin.
+  const before = timed.filter((t) => t.at > 0).sort((a, b) => a.stored - b.stored);
   const after = timed.filter((t) => t.at <= 0).sort((a, b) => b.at - a.at);
+  // A held back style can begin later than a farther one, so look at all those closer.
+  const nextChange = (closer) => Math.max(0, ...closer.map((t) => t.at));
 
   if (remainingMs > 0) {
     const i = before.findIndex((t) => remainingMs <= t.at);
-    if (i === -1) return { style: fallback, from: Infinity, to: before.at(-1)?.at ?? 0 };
-    return { style: before[i].style, from: before[i].at, to: i > 0 ? before[i - 1].at : 0 };
+    if (i === -1) return { style: fallback, from: Infinity, to: nextChange(before) };
+    return { style: before[i].style, from: before[i].at, to: nextChange(before.slice(0, i)) };
   }
   const i = after.findIndex((t) => remainingMs >= t.at);
   if (i === -1) return { style: fallback, from: after.at(-1)?.at ?? 0, to: -Infinity };
@@ -415,6 +437,29 @@ export function styleTimeline(styles, durationMinutes) {
       weight: section.fromMs === Infinity ? TIMELINE_LEAD_IN_WEIGHT : Math.sqrt(Math.min(minutes, TIMELINE_CUT_MINUTES)),
     };
   });
+}
+
+/** Warnings for styles that can't apply as their start suggests at this duration, by style id. */
+export function styleWarnings(styles, durationMinutes) {
+  const shown = new Set(styleTimeline(styles, durationMinutes).map((section) => section.style));
+  const warnings = new Map();
+  for (const style of styles) {
+    if (!style.enabled || style.start === null) continue;
+    const minutes = startMinutes(style, durationMinutes);
+    const early = startsWithTalk(style, durationMinutes);
+    if (Number.isNaN(minutes)) {
+      warnings.set(style.id, "Won't show: this start has no value at this duration.");
+    } else if (!shown.has(style)) {
+      warnings.set(style.id, early
+        ? "Won't show: another style covers the whole talk, which is shorter than this start. Set a smaller start to show during the talk, or the duration plus some minutes to show before it."
+        : "Won't show: other styles cover this time at this duration.");
+    } else if (early) {
+      warnings.set(style.id, "Starts with the talk, which is shorter than this start. Set the duration plus some minutes to show before it.");
+    } else if (minutes <= 0 && followsDuration(style)) {
+      warnings.set(style.id, "Applies over time: this start is past zero at this duration.");
+    }
+  }
+  return warnings;
 }
 
 /** Styles in display order: the fallback first, then by start, largest to smallest. */

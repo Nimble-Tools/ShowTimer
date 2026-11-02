@@ -15,6 +15,40 @@ test.describe("styles on screen", () => {
     await expect(timer.display).toHaveCSS("color", "rgb(154, 163, 173)");
   });
 
+  for (const minutes of [1, 2]) {
+    test(`a ${minutes}-minute talk never shows Wrap it up!`, async ({ timer }) => {
+      await timer.open();
+      await timer.scheduleAt("10:30", { minutes });
+
+      // Just before the start is within Wrap it up!'s 2 minutes from zero.
+      await timer.jump(30 * MINUTE - SECOND);
+      await timer.expectState("waiting");
+      await timer.expectStyle("starting-soon");
+
+      await timer.advance(SECOND);
+      await timer.expectState("running");
+      await timer.expectStyle("active");
+
+      await timer.jump(minutes * MINUTE - 2 * SECOND);
+      await timer.expectStyle("active");
+    });
+  }
+
+  test("a style past the duration takes over the talk if it's the closest to zero", async ({ timer }) => {
+    await timer.open();
+    await timer.openConfig();
+    await timer.styleToggle("Active").uncheck();
+    await timer.saveConfig();
+    await timer.scheduleAt("10:30", { minutes: 1 });
+
+    await timer.jump(30 * MINUTE - SECOND);
+    await timer.expectStyle("starting-soon");
+
+    await timer.advance(SECOND);
+    await timer.expectStyle("wrap-it-up");
+    expect(await timer.background()).toBe(AMBER);
+  });
+
   test("moves through Inactive, Starting Soon, Active, Wrap it up!, and Overtime", async ({ timer }) => {
     await timer.open();
     await timer.scheduleAt("10:30");
@@ -414,5 +448,123 @@ test.describe("styles in configuration", () => {
     await page.reload();
     await timer.openConfig();
     expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Go", "Wrap it up!", "Overtime"]);
+  });
+});
+
+test.describe("style warnings in configuration", () => {
+  const warning = (timer, name) => timer.styleRow(name).locator(".style-warning");
+
+  test("has none at the default duration", async ({ timer }) => {
+    await timer.open();
+    await timer.openConfig();
+    await expect(timer.styleList.locator(".style-warning")).toHaveCount(0);
+  });
+
+  test("follows the duration as it's typed", async ({ timer }) => {
+    await timer.open();
+    await timer.openConfig();
+
+    await timer.configDuration.fill("1");
+    await expect(warning(timer, "Wrap it up!")).toHaveText(/^Won't show: another style covers the whole talk/);
+
+    await timer.configDuration.fill("2");
+    await expect(warning(timer, "Wrap it up!")).toHaveText(/^Won't show: other styles cover/);
+
+    await timer.configDuration.fill("3");
+    await expect(warning(timer, "Wrap it up!")).toHaveCount(0);
+  });
+
+  test("changes when another style is disabled", async ({ timer }) => {
+    await timer.open();
+    await timer.openConfig();
+    await timer.configDuration.fill("1");
+
+    await timer.styleToggle("Active").uncheck();
+    await expect(warning(timer, "Wrap it up!")).toHaveText(/^Starts with the talk/);
+
+    await timer.styleToggle("Wrap it up!").uncheck();
+    await expect(warning(timer, "Wrap it up!")).toHaveCount(0);
+  });
+
+  test("describes the row to screen readers", async ({ timer }) => {
+    await timer.open();
+    await timer.openConfig();
+    await timer.configDuration.fill("1");
+    await expect(timer.styleRow("Wrap it up!")).toHaveAccessibleDescription(/^Won't show/);
+    await expect(timer.styleRow("Active")).toHaveAccessibleDescription("");
+  });
+
+  test("describes the row when a style's id has a space, as an imported one can", async ({ page, timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 5,
+      styles: [{ id: "my doors", name: "My doors", enabled: true, start: { minutes: 30, plusDuration: false } }],
+    });
+    await page.reload();
+    await timer.openConfig();
+    await expect(timer.styleRow("My doors")).toHaveAccessibleDescription(/^Won't show/);
+  });
+
+  test("the editor keeps list order for ties", async ({ page, timer }) => {
+    await timer.open();
+    await timer.openConfig();
+    const note = page.locator("#style-start-warning");
+    await expect(note).toHaveRole("status");
+
+    // A new style tied with Wrap it up! goes after it.
+    await timer.addStyle.click();
+    await timer.styleStart.fill("2");
+    await expect(note).toHaveText(/^Won't show: other styles cover/);
+    await timer.styleCancel.click();
+
+    // At 2 minutes, Active ties with Wrap it up! and comes first, whichever is being edited.
+    await timer.configDuration.fill("2");
+    await timer.editStyle("Active");
+    await expect(note).toBeEmpty();
+    await timer.styleCancel.click();
+    await timer.editStyle("Wrap it up!");
+    await expect(note).toHaveText(/^Won't show: other styles cover/);
+  });
+
+  test("shows in the editor as the start is typed", async ({ timer, page }) => {
+    await timer.open();
+    await timer.openConfig();
+    await timer.addStyle.click();
+    const note = page.locator("#style-start-warning");
+
+    await timer.styleStart.fill("3");
+    await expect(note).toBeHidden();
+
+    await timer.styleStart.fill("30");
+    await expect(note).toBeVisible();
+    await expect(note).toHaveText(/duration plus some minutes/);
+    await expect(timer.styleStart).toHaveAccessibleDescription(/duration plus some minutes/);
+
+    await timer.stylePlusDuration.check();
+    await expect(note).toBeHidden();
+  });
+
+  test("a style with a fixed start past the duration is warned about, and its fix works", async ({ timer, page }) => {
+    await timer.open();
+    await timer.openConfig();
+    await timer.addStyle.click();
+    await timer.styleName.fill("Doors open");
+    await timer.styleStart.fill("30");
+    await timer.styleDone.click();
+    await expect(warning(timer, "Doors open")).toHaveText(/duration plus some minutes/);
+
+    await timer.editStyle("Doors open");
+    await timer.styleStart.fill("25");
+    await timer.stylePlusDuration.check();
+    await timer.styleDone.click();
+    await expect(warning(timer, "Doors open")).toHaveCount(0);
+    await timer.saveConfig();
+
+    // 25 minutes before a 10:30 start is 10:05.
+    await timer.scheduleAt("10:30");
+    await timer.expectStyle("inactive");
+    await timer.jump(5 * MINUTE);
+    await timer.expectState("waiting");
+    await expect(page.locator("body")).toHaveAttribute("data-style", /^custom-/);
   });
 });
