@@ -36,7 +36,7 @@ describe("normalizeTheme / normalizeThemes", () => {
   it("keeps valid themes and normalizes their styles", () => {
     const result = normalizeTheme({ id: "t1", name: " Big room ", styles: [{ id: "active", background: "#000000" }] });
     assert.equal(result.name, "Big room");
-    assert.equal(result.styles.length, 4);
+    assert.equal(result.styles.length, 5);
     assert.equal(result.styles.find((s) => s.id === "active").background, "#000000");
   });
 
@@ -106,6 +106,8 @@ describe("deleteTheme / stylesMatch", () => {
   it("compares styles after normalizing", () => {
     assert.equal(stylesMatch(defaultStyles(), defaultStyles()), true);
     assert.equal(stylesMatch(defaultStyles(), []), true); // missing built-ins are restored
+    // Styles saved before Wrap it up! existed still match Default.
+    assert.equal(stylesMatch(defaultStyles(), defaultStyles().filter((s) => s.id !== "wrap-it-up")), true);
     assert.equal(stylesMatch(defaultStyles(), darkStyles()), false);
   });
 });
@@ -123,7 +125,7 @@ describe("theme files", () => {
     const json = JSON.parse(themeToJson("Dark", defaultStyles()));
     assert.equal(json.format, "scheduled-timer-theme");
     assert.equal(json.version, 1);
-    assert.equal(json.styles.length, 4);
+    assert.equal(json.styles.length, 5);
   });
 
   it("explains files it can't read", () => {

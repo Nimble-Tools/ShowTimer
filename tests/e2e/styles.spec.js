@@ -4,6 +4,7 @@ const GREY = "rgb(43, 47, 54)";
 const BLUE = "rgb(58, 123, 213)";
 const GREEN = "rgb(18, 184, 41)";
 const RED = "rgb(229, 20, 27)";
+const AMBER = "rgb(255, 176, 0)";
 const WHITE = "rgb(255, 255, 255)";
 
 test.describe("styles on screen", () => {
@@ -14,7 +15,7 @@ test.describe("styles on screen", () => {
     await expect(timer.display).toHaveCSS("color", "rgb(154, 163, 173)");
   });
 
-  test("moves through Inactive, Starting Soon, Active, and Overtime", async ({ timer }) => {
+  test("moves through Inactive, Starting Soon, Active, Wrap it up!, and Overtime", async ({ timer }) => {
     await timer.open();
     await timer.scheduleAt("10:30");
     // 30 minutes before the start is more than duration + 5 from zero.
@@ -39,9 +40,18 @@ test.describe("styles on screen", () => {
     await expect(timer.display).toHaveCSS("color", WHITE);
     await expect(timer.display).toHaveCSS("font-weight", "900");
 
-    // Overtime from 00:00.
-    await timer.jump(5 * MINUTE - SECOND);
+    // Wrap it up! from 02:00.
+    await timer.jump(3 * MINUTE - SECOND);
     await timer.expectStyle("active");
+    await timer.advance(SECOND);
+    await expect(timer.display).toHaveText("02:00");
+    await timer.expectStyle("wrap-it-up");
+    expect(await timer.background()).toBe(AMBER);
+    await expect(timer.display).toHaveCSS("color", "rgb(26, 26, 26)");
+
+    // Overtime from 00:00.
+    await timer.jump(2 * MINUTE - SECOND);
+    await timer.expectStyle("wrap-it-up");
     await timer.advance(SECOND);
     await expect(timer.display).toHaveText("00:00");
     await timer.expectStyle("overtime");
@@ -112,12 +122,13 @@ test.describe("styles in configuration", () => {
     await timer.open();
     await timer.openConfig();
 
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Overtime"]);
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up!", "Overtime"]);
     await expect(timer.styleRow("Inactive")).toContainText("Otherwise");
     await expect(timer.styleRow("Starting Soon")).toContainText("10 min (duration + 5)");
     await expect(timer.styleRow("Active")).toContainText("5 min (duration)");
+    await expect(timer.styleRow("Wrap it up!")).toContainText("2 min");
     await expect(timer.styleRow("Overtime")).toContainText("-60 min");
-    for (const name of ["Inactive", "Starting Soon", "Active", "Overtime"]) {
+    for (const name of ["Inactive", "Starting Soon", "Active", "Wrap it up!", "Overtime"]) {
       await expect(timer.styleToggle(name)).toBeChecked();
     }
   });
@@ -251,7 +262,7 @@ test.describe("styles in configuration", () => {
   test("can't delete built-in styles", async ({ timer }) => {
     await timer.open();
     await timer.openConfig();
-    for (const name of ["Inactive", "Starting Soon", "Active", "Overtime"]) {
+    for (const name of ["Inactive", "Starting Soon", "Active", "Wrap it up!", "Overtime"]) {
       await timer.editStyle(name);
       await expect(timer.styleDelete).toBeDisabled();
       await expect(timer.styleDialog.locator("#style-delete-wrap")).toHaveAttribute(
@@ -279,18 +290,18 @@ test.describe("styles in configuration", () => {
     await expect(timer.styleDialog.getByRole("heading", { level: 2 })).toHaveText("Add style");
     await expect(timer.styleDelete).toBeDisabled();
 
-    await timer.styleName.fill("Wrap it up");
+    await timer.styleName.fill("Last call");
     await timer.styleStart.fill("1");
     await timer.styleBackground.fill("#ff8800");
     await timer.styleDone.click();
 
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up", "Overtime"]);
-    await expect(timer.styleRow("Wrap it up")).toContainText("1 min");
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up!", "Last call", "Overtime"]);
+    await expect(timer.styleRow("Last call")).toContainText("1 min");
     await timer.saveConfig();
 
     await timer.click(timer.startPause);
     await timer.jump(4 * MINUTE - SECOND);
-    await timer.expectStyle("active");
+    await timer.expectStyle("wrap-it-up");
     await timer.advance(SECOND);
     await expect(timer.display).toHaveText("01:00");
     expect(await timer.currentStyle()).toMatch(/^custom-/);
@@ -306,7 +317,7 @@ test.describe("styles in configuration", () => {
     await timer.styleName.fill("Really over");
     await timer.styleStart.fill("-10");
     await timer.styleDone.click();
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Really over", "Overtime"]);
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up!", "Really over", "Overtime"]);
     await timer.saveConfig();
 
     await timer.setMinutes(0.05);
@@ -332,12 +343,12 @@ test.describe("styles in configuration", () => {
     await expect(timer.styleDialog.locator("#style-delete-wrap")).not.toHaveAttribute("title", /cannot/);
     await timer.styleDelete.click();
     await expect(timer.styleDialog).toBeHidden();
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Overtime"]);
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up!", "Overtime"]);
     await timer.saveConfig();
 
     await page.reload();
     await timer.openConfig();
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Overtime"]);
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up!", "Overtime"]);
   });
 
   test("validates the name and start", async ({ timer }) => {
@@ -380,7 +391,7 @@ test.describe("styles in configuration", () => {
     await timer.page.keyboard.press("Escape");
     await expect(timer.styleDialog).toBeHidden();
     await expect(timer.configDialog).toBeVisible();
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Overtime"]);
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Active", "Wrap it up!", "Overtime"]);
   });
 
   test("cancelling the configuration discards style changes", async ({ timer }) => {
@@ -402,6 +413,6 @@ test.describe("styles in configuration", () => {
     await timer.storeConfig({ durationMinutes: 5, styles: [{ id: "active", name: "Go" }] });
     await page.reload();
     await timer.openConfig();
-    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Go", "Overtime"]);
+    expect(await timer.styleNames()).toEqual(["Inactive", "Starting Soon", "Go", "Wrap it up!", "Overtime"]);
   });
 });

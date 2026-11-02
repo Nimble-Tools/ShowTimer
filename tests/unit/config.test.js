@@ -113,7 +113,7 @@ describe("normalizeConfig", () => {
 
   it("normalizes styles, restoring missing built-ins", () => {
     const config = normalizeConfig({ styles: [{ id: "active", name: "Go", enabled: false }] });
-    assert.deepEqual(config.styles.map((s) => s.id), ["active", "inactive", "starting-soon", "overtime"]);
+    assert.deepEqual(config.styles.map((s) => s.id), ["active", "inactive", "starting-soon", "overtime", "wrap-it-up"]);
     assert.equal(config.styles[0].name, "Go");
     assert.equal(config.styles[0].enabled, false);
   });

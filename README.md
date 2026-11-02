@@ -14,6 +14,8 @@ You set up a timer on your PC. You forget to start it.
 
 You remembered to start the timer on your PC. Your slide clicker's first click was interpreted as "stop timer".
 
+You have enough to worry about without having to worry that your timer works properly and informs you when you're coming to the end of your session!
+
 ## The Goal
 
 Most apps like the built-in timers and alarms on a phone support *either* scheduling a thing to make noise at a time **or** starting something counting down when you tell it to do so. What's needed for most conference talks is something that starts counting down **at a specific time** whether you remember to tell it to or not.
@@ -22,7 +24,7 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 
 - Full-screen countdown in a large font (defaults to 5 minutes), shown as `mm:ss`, or `hh:mm:ss` for an hour or more.
 - At zero it keeps counting over time as a negative number (`-00:01`, `-00:02`, …), and stops once it's an hour over.
-- Styles set the background, text color, font, size, and shadow for each stage of the countdown. Built in: **Inactive** (muted grey, whenever no other style applies), **Starting Soon** (blue, handwritten, from 5 minutes before the start), **Active** (green, bold, from the start), and **Overtime** (red, Bangers, from zero to an hour over). Built-in styles can be edited or disabled; custom styles can be added and deleted. Each style starts a number of minutes from zero, and the closest to zero applies. A start can also be an expression of the presentation duration, such as `$duration / 10` or `$duration - 5`, so styles adapt to talks of any length.
+- Styles set the background, text color, font, size, and shadow for each stage of the countdown. Built in: **Inactive** (muted grey, whenever no other style applies), **Starting Soon** (blue, handwritten, from 5 minutes before the start), **Active** (green, bold, from the start), **Wrap it up!** (orange-yellow, bold, from 2 minutes left), and **Overtime** (red, Bangers, from zero to an hour over). Built-in styles can be edited or disabled; custom styles can be added and deleted. Each style starts a number of minutes from zero, and the closest to zero applies. A start can also be an expression of the presentation duration, such as `$duration / 10` or `$duration - 5`, so styles adapt to talks of any length.
 - Effects play within a style, starting a number of seconds after it begins. **Strobe** inverts the screen colors every half second; by default, Overtime strobes for 5 seconds when time runs out (it can be disabled or removed). **Fade to next style** gradually blends the colors and size into the next style, so it matches by the time that style takes over. Effects play only while the timer is running or counting toward a scheduled start.
 - Themes are named sets of styles. Save the current styles as a theme, switch between saved themes (or back to Default) in configuration, and export or import themes as JSON files to share them.
 - Configuration (the gear icon, top right) sets the presentation duration (how long the talk is, and so where the countdown starts) to any number of minutes. Settings are saved in browser storage (`localStorage`).

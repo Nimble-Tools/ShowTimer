@@ -31,13 +31,13 @@ const resolvedId = (styles, remainingMs, duration = DURATION) => resolveStyle(st
 describe("defaultStyles", () => {
   const styles = defaultStyles();
 
-  it("has the four built-in styles in order", () => {
+  it("has the five built-in styles in order", () => {
     assert.deepEqual(styles.map((s) => s.id), BUILT_IN_IDS);
-    assert.deepEqual(styles.map((s) => s.name), ["Inactive", "Starting Soon", "Active", "Overtime"]);
+    assert.deepEqual(styles.map((s) => s.name), ["Inactive", "Starting Soon", "Active", "Overtime", "Wrap it up!"]);
     assert.ok(styles.every((s) => s.builtIn && s.enabled));
   });
 
-  it("starts Starting Soon at duration + 5, Active at the duration, and Overtime at -60", () => {
+  it("starts Starting Soon at duration + 5, Active at the duration, Wrap it up! at 2, and Overtime at -60", () => {
     assert.equal(startMinutes(styles[0], DURATION), null);
     assert.equal(startMinutes(styles[1], DURATION), 10);
     assert.equal(startMinutes(styles[2], DURATION), 5);
@@ -45,10 +45,12 @@ describe("defaultStyles", () => {
     assert.equal(startMinutes(styles[1], 30), 35);
     assert.equal(startMinutes(styles[2], 30), 30);
     assert.equal(startMinutes(styles[3], 30), -60);
+    assert.equal(startMinutes(styles[4], DURATION), 2);
+    assert.equal(startMinutes(styles[4], 30), 2);
   });
 
   it("uses the specified looks", () => {
-    const [inactive, soon, active, overtime] = styles;
+    const [inactive, soon, active, overtime, wrapUp] = styles;
     // Muted grey.
     assert.equal(inactive.background, "#2b2f36");
     // Blue with white handwritten text.
@@ -61,6 +63,9 @@ describe("defaultStyles", () => {
     // Bright red with white Bangers.
     assert.equal(overtime.background, "#e5141b");
     assert.equal(overtime.font, "bangers");
+    // Orange-yellow with dark text, which stays readable on it.
+    assert.equal(wrapUp.background, "#ffb000");
+    assert.equal(wrapUp.color, "#1a1a1a");
   });
 
   it("returns fresh copies", () => {
@@ -79,8 +84,10 @@ describe("resolveStyle with the default styles", () => {
     ["waiting, a minute before the start", 6 * MINUTE, "starting-soon"],
     ["just before the timer starts", 5 * MINUTE + 1, "starting-soon"],
     ["the moment the timer starts", 5 * MINUTE, "active"],
-    ["counting down", 2 * MINUTE, "active"],
-    ["the last millisecond", 1, "active"],
+    ["counting down", 3 * MINUTE, "active"],
+    ["just over two minutes left", 2 * MINUTE + 1, "active"],
+    ["two minutes left", 2 * MINUTE, "wrap-it-up"],
+    ["the last millisecond", 1, "wrap-it-up"],
     ["zero", 0, "overtime"],
     ["over time", -5 * MINUTE, "overtime"],
     ["an hour over", -60 * MINUTE, "overtime"],
@@ -93,9 +100,16 @@ describe("resolveStyle with the default styles", () => {
   it("reports the span each style covers", () => {
     assert.deepEqual(resolveStyle(styles, Infinity, DURATION), { style: styles[0], from: Infinity, to: 10 * MINUTE });
     assert.deepEqual(resolveStyle(styles, 7 * MINUTE, DURATION), { style: styles[1], from: 10 * MINUTE, to: 5 * MINUTE });
-    assert.deepEqual(resolveStyle(styles, 3 * MINUTE, DURATION), { style: styles[2], from: 5 * MINUTE, to: 0 });
+    assert.deepEqual(resolveStyle(styles, 3 * MINUTE, DURATION), { style: styles[2], from: 5 * MINUTE, to: 2 * MINUTE });
+    assert.deepEqual(resolveStyle(styles, MINUTE, DURATION), { style: styles[4], from: 2 * MINUTE, to: 0 });
     assert.deepEqual(resolveStyle(styles, -3 * MINUTE, DURATION), { style: styles[3], from: 0, to: -60 * MINUTE });
     assert.deepEqual(resolveStyle(styles, -61 * MINUTE, DURATION), { style: styles[0], from: -60 * MINUTE, to: -Infinity });
+  });
+
+  it("leaves Active showing when the talk is no longer than Wrap it up!'s start", () => {
+    assert.equal(resolvedId(styles, 2 * MINUTE, 2), "active");
+    assert.equal(resolvedId(styles, MINUTE, 2), "active");
+    assert.equal(resolvedId(styles, MINUTE, 1), "active");
   });
 
   it("moves relative starts with the duration", () => {
@@ -107,12 +121,12 @@ describe("resolveStyle with the default styles", () => {
 
 describe("resolveStyle precedence", () => {
   it("lets the start closest to zero win before zero", () => {
-    const styles = [...defaultStyles(), custom("wrap-up", 1)];
-    assert.equal(resolvedId(styles, 2 * MINUTE), "active");
-    assert.equal(resolvedId(styles, MINUTE), "wrap-up");
-    assert.equal(resolvedId(styles, SECOND), "wrap-up");
+    const styles = [...defaultStyles(), custom("last-call", 1)];
+    assert.equal(resolvedId(styles, MINUTE + 1), "wrap-it-up");
+    assert.equal(resolvedId(styles, MINUTE), "last-call");
+    assert.equal(resolvedId(styles, SECOND), "last-call");
     assert.deepEqual(resolveStyle(styles, 30 * SECOND, DURATION).from, MINUTE);
-    assert.deepEqual(resolveStyle(styles, 3 * MINUTE, DURATION).to, MINUTE);
+    assert.deepEqual(resolveStyle(styles, 90 * SECOND, DURATION).to, MINUTE);
   });
 
   it("lets the start closest to zero win over time", () => {
@@ -129,9 +143,9 @@ describe("resolveStyle precedence", () => {
 
   it("skips disabled styles", () => {
     const styles = defaultStyles().map((s) => (s.id === "active" ? { ...s, enabled: false } : s));
-    // Starting Soon now covers the whole countdown.
-    assert.equal(resolvedId(styles, 2 * MINUTE), "starting-soon");
-    assert.deepEqual(resolveStyle(styles, 2 * MINUTE, DURATION).to, 0);
+    // Starting Soon now covers the countdown until Wrap it up!.
+    assert.equal(resolvedId(styles, 3 * MINUTE), "starting-soon");
+    assert.deepEqual(resolveStyle(styles, 3 * MINUTE, DURATION).to, 2 * MINUTE);
   });
 
   it("falls back to Inactive where nothing else applies", () => {
@@ -239,7 +253,7 @@ describe("normalizeStyles", () => {
   it("keeps custom styles in their stored order", () => {
     const styles = normalizeStyles([...defaultStyles(), custom("b", 2), custom("a", 1)]);
     assert.deepEqual(styles.map((s) => s.id), [...BUILT_IN_IDS, "b", "a"]);
-    assert.equal(styles[4].builtIn, false);
+    assert.equal(styles[5].builtIn, false);
   });
 
   it("can't make a custom style built in", () => {
@@ -286,6 +300,7 @@ describe("sortStylesForDisplay", () => {
       "doors",
       "starting-soon",
       "active",
+      "wrap-it-up",
       "wrap-up",
       "way-over",
       "overtime",
@@ -294,7 +309,7 @@ describe("sortStylesForDisplay", () => {
 
   it("re-sorts when the duration moves relative starts", () => {
     const styles = [...defaultStyles(), custom("doors", 20)];
-    assert.deepEqual(sortStylesForDisplay(styles, 30).map((s) => s.id), ["inactive", "starting-soon", "active", "doors", "overtime"]);
+    assert.deepEqual(sortStylesForDisplay(styles, 30).map((s) => s.id), ["inactive", "starting-soon", "active", "doors", "wrap-it-up", "overtime"]);
   });
 
   it("keeps list order for equal starts and does not mutate the input", () => {
@@ -312,12 +327,13 @@ describe("sortStylesForDisplay", () => {
 });
 
 describe("describeStart", () => {
-  const [inactive, soon, active, overtime] = defaultStyles();
+  const [inactive, soon, active, overtime, wrapUp] = defaultStyles();
   it("describes each kind of start", () => {
     assert.equal(describeStart(inactive, DURATION), "Otherwise");
     assert.equal(describeStart(soon, DURATION), "10 min (duration + 5)");
     assert.equal(describeStart(active, DURATION), "5 min (duration)");
     assert.equal(describeStart(overtime, DURATION), "-60 min");
+    assert.equal(describeStart(wrapUp, DURATION), "2 min");
     assert.equal(describeStart(custom("x", 1.5), DURATION), "1.5 min");
     assert.equal(describeStart({ ...active, start: { minutes: -2, plusDuration: true } }, 7.5), "5.5 min (duration − 2)");
   });
@@ -384,12 +400,12 @@ describe("start expressions", () => {
     assert.equal(resolvedId(styles, 3 * MINUTE, 30), "wrap-up");
     assert.equal(resolvedId(styles, 3 * MINUTE + SECOND, 30), "active");
     assert.equal(resolvedId(styles, 1 * MINUTE, 10), "wrap-up");
-    assert.equal(resolvedId(styles, 2 * MINUTE, 10), "active");
+    assert.equal(resolvedId(styles, 2 * MINUTE + SECOND, 10), "active");
   });
 
   it("ignores a style whose expression has no value", () => {
     const styles = [...defaultStyles(), expr("broken", "$duration / ($duration - 5)")];
-    assert.equal(resolvedId(styles, 2 * MINUTE, 5), "active");
+    assert.equal(resolvedId(styles, 3 * MINUTE, 5), "active");
     assert.deepEqual(sortStylesForDisplay(styles, 5).map((s) => s.id).at(-1), "broken");
   });
 

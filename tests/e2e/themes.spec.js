@@ -174,26 +174,26 @@ test.describe("duration expressions in style starts", () => {
   test("starts a style at a fraction of the duration", async ({ timer }) => {
     await timer.open();
     await timer.openConfig();
-    await timer.configDuration.fill("20");
+    await timer.configDuration.fill("30");
     await timer.addStyle.click();
     await timer.styleName.fill("Wrap up");
     await timer.styleStart.fill("$duration / 10");
     await expect(timer.stylePlusDuration).toBeDisabled();
     await expect(timer.styleDialog.locator("#style-start-hint")).toHaveText(
-      "Starts at 2 min ($duration / 10) with the current duration."
+      "Starts at 3 min ($duration / 10) with the current duration."
     );
     await timer.styleDone.click();
-    await expect(timer.styleRow("Wrap up")).toContainText("2 min ($duration / 10)");
+    await expect(timer.styleRow("Wrap up")).toContainText("3 min ($duration / 10)");
     await timer.saveConfig();
 
     const stored = await timer.storedConfig();
     expect(stored.styles.find((s) => s.name === "Wrap up").start).toEqual({ expression: "$duration / 10" });
 
     await timer.click(timer.startPause);
-    await timer.jump(18 * MINUTE - 1000);
+    await timer.jump(27 * MINUTE - 1000);
     await timer.expectStyle("active");
     await timer.jump(1000);
-    await expect(timer.display).toHaveText("02:00");
+    await expect(timer.display).toHaveText("03:00");
     await expect(timer.page.locator("body")).toHaveAttribute("data-style", /^custom-/);
   });
 

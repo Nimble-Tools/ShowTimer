@@ -35,7 +35,7 @@ export const MAX_NAME_LENGTH = 40;
 // No style can start further than a day from zero.
 export const MAX_START_MINUTES = 24 * 60;
 
-export const BUILT_IN_IDS = ["inactive", "starting-soon", "active", "overtime"];
+export const BUILT_IN_IDS = ["inactive", "starting-soon", "active", "overtime", "wrap-it-up"];
 
 /** The predefined styles, in their default order. */
 export function defaultStyles() {
@@ -95,6 +95,20 @@ function builtInStyles() {
       weight: 400,
       sizePercent: 100,
       shadow: true,
+    },
+    // Last: configs saved before it existed get it appended, and still match Default.
+    {
+      id: "wrap-it-up",
+      name: "Wrap it up!",
+      builtIn: true,
+      enabled: true,
+      start: { minutes: 2, plusDuration: false },
+      background: "#ffb000",
+      color: "#1a1a1a",
+      font: "sans",
+      weight: 900,
+      sizePercent: 100,
+      shadow: false,
     },
   ];
 }
