@@ -563,6 +563,12 @@ input[aria-invalid="true"] {
   font-variant-numeric: tabular-nums;
 }
 
+.style-warning {
+  grid-column: 1 / -1;
+  color: #ffc857;
+  font-size: 0.85rem;
+}
+
 .effect-list {
   display: grid;
   gap: 0.5rem;

@@ -107,7 +107,7 @@
           <button type="button" id="add-style">Add style</button>
         </div>
         <p class="hint">Each style starts at a number of minutes from zero: positive before, negative over time.
-          The closest to zero applies.</p>
+          The closest to zero applies, and only a start of the duration plus some minutes can show before the talk.</p>
         <ol id="style-timeline" class="style-timeline" role="list" tabindex="0" aria-label="Style timeline"
           aria-describedby="style-timeline-hint"></ol>
         <p id="style-timeline-hint" class="hint">Time moves left to right, until the timer stops an hour over. Widths
@@ -144,11 +144,12 @@
         <label for="style-start">Starts at (minutes from zero)</label>
         <div class="inline">
           <input id="style-start" type="text" spellcheck="false" autocomplete="off"
-            aria-describedby="style-start-hint style-start-error">
+            aria-describedby="style-start-hint style-start-warning style-start-error">
           <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the presentation duration</label>
         </div>
         <p class="hint">Or use <code>$duration</code>, the presentation duration, e.g. <code>$duration / 10</code>.</p>
         <p id="style-start-hint" class="hint"></p>
+        <p id="style-start-warning" class="hint style-warning" role="status" hidden></p>
         <p id="style-start-error" class="error" role="alert" hidden></p>
       </div>
       <p id="style-fallback-hint" class="hint field" hidden>Inactive applies whenever no other style does, so it has no start time.</p>
