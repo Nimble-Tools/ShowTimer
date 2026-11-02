@@ -67,6 +67,7 @@ export class TimerPage {
     this.themeStatus = page.locator("#theme-status");
     this.themeError = page.locator("#theme-error");
     this.styleList = page.locator("#style-list");
+    this.timeline = page.locator("#style-timeline");
     this.effectList = page.locator("#effect-list");
     this.addStyle = page.getByRole("button", { name: "Add style" });
     this.styleDialog = page.locator("#style-dialog");

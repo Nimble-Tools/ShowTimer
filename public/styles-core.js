@@ -15,7 +15,8 @@
 // arithmetic expression of the presentation duration such as
 // "$duration / 10" (see parseStartExpression).
 
-import { defaultEffects, normalizeEffects } from "./effects-core.js";
+import { defaultEffects, effectState, mixColors, normalizeEffects } from "./effects-core.js";
+import { MAX_OVERTIME_MS } from "./timer-core.js";
 
 const MINUTE = 60 * 1000;
 
@@ -359,6 +360,61 @@ export function resolveStyle(styles, remainingMs, durationMinutes) {
 export function styleAfter(styles, toMs, durationMinutes) {
   // Over time, a style still applies at the end of its span, so look just past it.
   return resolveStyle(styles, toMs > 0 ? toMs : toMs - 1, durationMinutes).style;
+}
+
+// The timeline isn't to scale: a section's width grows with the square root of
+// its length, up to a cap, so a 5 minute talk isn't tiny beside an hour over.
+const TIMELINE_CUT_MINUTES = 10;
+const TIMELINE_LEAD_IN_WEIGHT = 1.5;
+
+/** How a section with an enabled fade blends: from `startFraction` of the way along, to `endBackground`. */
+function timelineFade(style, next, spanMs, visibleMs) {
+  if (!style || !next) return null;
+  const starts = (style.effects ?? [])
+    .filter((effect) => effect.enabled && effect.type === "fade")
+    .map((effect) => effect.startSeconds * 1000)
+    .filter((start) => start < visibleMs);
+  if (!starts.length) return null;
+  // The timer can stop before a long fade finishes, so use how far it really gets.
+  const { fade } = effectState(style.effects, visibleMs, spanMs);
+  return {
+    next,
+    startFraction: Math.min(...starts) / visibleMs,
+    endBackground: mixColors(style.background, next.background, fade),
+  };
+}
+
+/**
+ * What the timer shows from before the start until it stops, as sections in
+ * time order. Walks resolveStyle, so it always agrees with the screen. Each
+ * section has its `style` (null if none applies), the span it covers in
+ * remaining milliseconds (`fromMs` is Infinity for the open-ended lead-in, and
+ * each later `fromMs` is a time the style changes), its `fade`, its width
+ * `weight`, and whether it's `cut` short.
+ */
+export function styleTimeline(styles, durationMinutes) {
+  const sections = [];
+  let at = Infinity;
+  while (at > -MAX_OVERTIME_MS) {
+    const { style, from, to } = resolveStyle(styles, at, durationMinutes);
+    const toMs = Math.max(to, -MAX_OVERTIME_MS);
+    const last = sections.at(-1);
+    if (last && last.style === style) {
+      last.toMs = toMs; // The fallback on both sides of zero, with nothing between.
+    } else if (from > toMs) {
+      const fade = timelineFade(style, styleAfter(styles, to, durationMinutes), from - to, from - toMs);
+      sections.push({ style, fromMs: from, toMs, fade });
+    }
+    at = to > 0 ? to : to - 1;
+  }
+  return sections.map((section) => {
+    const minutes = (section.fromMs - section.toMs) / MINUTE;
+    return {
+      ...section,
+      cut: minutes > TIMELINE_CUT_MINUTES,
+      weight: section.fromMs === Infinity ? TIMELINE_LEAD_IN_WEIGHT : Math.sqrt(Math.min(minutes, TIMELINE_CUT_MINUTES)),
+    };
+  });
 }
 
 /** Styles in display order: the fallback first, then by start, largest to smallest. */
