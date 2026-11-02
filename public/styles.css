@@ -186,6 +186,13 @@ body.controls-hidden {
   cursor: none;
 }
 
+/* Unlike the other controls, a mouse move doesn't bring this back during a
+   talk. Hidden this way, it also can't take focus, or a remote's Enter. */
+body[data-state="running"] .github-link,
+body.controls-hidden .github-link {
+  visibility: hidden;
+}
+
 .group {
   display: flex;
   flex-wrap: wrap;
@@ -338,6 +345,40 @@ button.primary {
 .config-button:hover,
 .config-button:focus-visible {
   color: var(--fg);
+}
+
+/* Top left, mirroring the configuration button. */
+.github-link {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: rgba(10, 12, 16, 0.55);
+  color: #c3cad3;
+  transition: color 0.2s;
+}
+
+.github-link:hover,
+.github-link:focus-visible {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+.feedback {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.feedback a {
+  color: var(--accent);
 }
 
 .config-dialog {

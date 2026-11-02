@@ -607,6 +607,11 @@ els.controls.addEventListener("click", (event) => {
   const control = event.target.closest("button, summary");
   if (control && event.detail > 0) control.blur();
 });
+// The same goes for links, with any mouse button. Stopping the press from
+// focusing them doesn't stop them opening.
+document.querySelectorAll("a").forEach((link) =>
+  link.addEventListener("mousedown", (event) => event.preventDefault())
+);
 
 function toggleFullscreen() {
   if (document.fullscreenElement) {
