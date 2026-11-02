@@ -137,6 +137,119 @@ test.describe("effects", () => {
     expect(await timer.background()).toBe("rgb(229, 20, 27)");
   });
 
+  test("fades evenly across the whole style, not just at its end", async ({ timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 5,
+      styles: [
+        { id: "active", effects: [{ id: "f", type: "fade" }] },
+        { id: "wrap-it-up", start: { minutes: 1, plusDuration: false } },
+      ],
+    });
+    await timer.page.reload();
+    await timer.click(timer.startPause);
+    const textColor = () => timer.page.evaluate(() => document.body.style.getPropertyValue("--style-fg"));
+
+    // Active is #12b829 with white text; Wrap it up is #ffb000 with #1a1a1a text.
+    await timer.jump(MINUTE);
+    expect(await timer.background()).toBe("rgb(77, 182, 31)");
+    await timer.jump(MINUTE);
+    expect(await timer.background()).toBe("rgb(137, 180, 21)");
+    expect(await textColor()).toBe("#8d8d8d");
+    await timer.jump(MINUTE);
+    expect(await timer.background()).toBe("rgb(196, 178, 10)");
+    await timer.jump(MINUTE);
+    await timer.expectStyle("wrap-it-up");
+    expect(await timer.background()).toBe("rgb(255, 176, 0)");
+  });
+
+  test("holds a fade while paused, though a strobe on the same style stops", async ({ timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 5,
+      styles: [
+        {
+          id: "active",
+          effects: [
+            { id: "f", type: "fade" },
+            { id: "s", type: "strobe", durationSeconds: 0 },
+          ],
+        },
+        { id: "wrap-it-up", start: { minutes: 1, plusDuration: false } },
+      ],
+    });
+    await timer.page.reload();
+    await timer.click(timer.startPause);
+    await timer.jump(2 * MINUTE);
+    expect(await timer.background()).toBe("rgb(137, 180, 21)");
+    await strobing(timer);
+
+    await timer.click(timer.startPause);
+    await timer.expectState("paused");
+    await timer.jump(10 * MINUTE);
+    expect(await timer.background()).toBe("rgb(137, 180, 21)");
+    await notStrobing(timer);
+
+    await timer.click(timer.startPause);
+    await timer.expectState("running");
+    await timer.jump(MINUTE);
+    expect(await timer.background()).toBe("rgb(196, 178, 10)");
+    await strobing(timer);
+  });
+
+  test("holds a fade while paused over time", async ({ timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 1,
+      styles: [{ id: "overtime", start: { minutes: -2, plusDuration: false }, effects: [{ id: "f", type: "fade" }] }],
+    });
+    await timer.page.reload();
+    await timer.click(timer.startPause);
+    await timer.jump(2 * MINUTE);
+    expect(await timer.background()).toBe("rgb(136, 34, 41)");
+
+    await timer.click(timer.startPause);
+    await timer.expectState("paused");
+    await timer.jump(MINUTE);
+    expect(await timer.background()).toBe("rgb(136, 34, 41)");
+  });
+
+  test("keeps a fade finished when the timer stops", async ({ timer }) => {
+    await timer.open();
+    // Overtime lasts the hour until the timer stops; it is #e5141b, and Inactive is #2b2f36.
+    await timer.storeConfig({ durationMinutes: 1, styles: [{ id: "overtime", effects: [{ id: "f", type: "fade" }] }] });
+    await timer.page.reload();
+    await timer.click(timer.startPause);
+    await timer.jump(MINUTE + 30 * MINUTE);
+    expect(await timer.background()).toBe("rgb(136, 34, 41)");
+
+    await timer.jump(30 * MINUTE);
+    await timer.expectState("stopped");
+    expect(await timer.background()).toBe("rgb(43, 47, 54)");
+  });
+
+  test("fades a style over time into what follows it", async ({ timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 1,
+      styles: [{ id: "overtime", start: { minutes: -2, plusDuration: false }, effects: [{ id: "f", type: "fade" }] }],
+    });
+    await timer.page.reload();
+    await timer.click(timer.startPause);
+
+    // Overtime is #e5141b; past its end, Inactive is #2b2f36.
+    await timer.jump(2 * MINUTE);
+    await timer.expectStyle("overtime");
+    expect(await timer.background()).toBe("rgb(136, 34, 41)");
+    // Fully blended as it ends, so nothing jumps when Inactive takes over.
+    await timer.jump(MINUTE);
+    await timer.expectStyle("overtime");
+    expect(await timer.background()).toBe("rgb(43, 47, 54)");
+    await timer.jump(SECOND);
+    await timer.expectStyle("inactive");
+    expect(await timer.background()).toBe("rgb(43, 47, 54)");
+  });
+
   test("adds a fade in the editor", async ({ timer }) => {
     await timer.open();
     await timer.openConfig();

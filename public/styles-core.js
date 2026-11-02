@@ -355,6 +355,12 @@ export function resolveStyle(styles, remainingMs, durationMinutes) {
   return { style: after[i].style, from: i > 0 ? after[i - 1].at : 0, to: after[i].at };
 }
 
+/** The style that takes over when a span from resolveStyle ends at `toMs` (null if none is enabled). */
+export function styleAfter(styles, toMs, durationMinutes) {
+  // Over time, a style still applies at the end of its span, so look just past it.
+  return resolveStyle(styles, toMs > 0 ? toMs : toMs - 1, durationMinutes).style;
+}
+
 /** Styles in display order: the fallback first, then by start, largest to smallest. */
 export function sortStylesForDisplay(styles, durationMinutes) {
   return styles
