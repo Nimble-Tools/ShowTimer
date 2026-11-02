@@ -102,8 +102,11 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
         time.setAttribute("aria-hidden", "true");
         time.textContent = fromMs === Infinity ? "" : formatClock(fromMs);
 
+        const arrow = document.createElement("span");
+        arrow.className = "timeline-arrow";
         const band = document.createElement("span");
         band.className = "timeline-band";
+        arrow.append(band);
         band.classList.toggle("is-cut", cut);
         band.classList.toggle("is-unstyled", !style);
         if (style) band.style.background = style.background;
@@ -115,12 +118,13 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
         name.className = "timeline-name";
         name.setAttribute("aria-hidden", "true");
         name.textContent = style?.name ?? "No style";
+        name.title = name.textContent; // A long name is cut off after a few lines.
 
         const description = document.createElement("span");
         description.className = "visually-hidden";
         description.textContent = describeSection(section, index === sections.length - 1);
 
-        item.append(time, band, name, description);
+        item.append(time, arrow, name, description);
         return item;
       })
     );

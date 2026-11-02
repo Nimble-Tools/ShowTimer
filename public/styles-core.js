@@ -401,7 +401,7 @@ export function styleTimeline(styles, durationMinutes) {
     const last = sections.at(-1);
     if (last && last.style === style) {
       last.toMs = toMs; // The fallback on both sides of zero, with nothing between.
-    } else if (from > toMs) {
+    } else {
       const fade = timelineFade(style, styleAfter(styles, to, durationMinutes), from - to, from - toMs);
       sections.push({ style, fromMs: from, toMs, fade });
     }

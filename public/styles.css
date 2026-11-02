@@ -457,10 +457,18 @@ input[aria-invalid="true"] {
   white-space: nowrap;
 }
 
+/* An outline around the clipped band, so a style as dark as the dialog still shows. */
+.timeline-arrow {
+  display: grid;
+  filter: drop-shadow(0 1px 0 var(--muted)) drop-shadow(0 -1px 0 var(--muted)) drop-shadow(1px 0 0 var(--muted));
+}
+
 /* The tall box leaves room for the arrowhead, and the sections are clipped to the shaft. */
 .timeline-band {
   position: relative;
   clip-path: polygon(0 20%, 100% 20%, 100% 80%, 0 80%);
+  /* The colors are the content, so high contrast modes shouldn't replace them. */
+  forced-color-adjust: none;
 }
 
 .timeline-section:last-child .timeline-band {
@@ -480,13 +488,14 @@ input[aria-invalid="true"] {
   background: repeating-linear-gradient(135deg, var(--border) 0 0.25rem, transparent 0.25rem 0.5rem);
 }
 
-/* A // gap in the dialog's own color, so it shows on any style color. */
+/* A // break: light lines around a dark gap, so one or the other shows on any style color. */
 .timeline-band.is-cut::after {
   content: "";
   position: absolute;
   inset: 0 auto 0 40%;
-  width: 0.7rem;
-  background: linear-gradient(to right, #161a20 0 30%, transparent 30% 70%, #161a20 70%);
+  width: 0.5rem;
+  background: #161a20;
+  border-inline: 2px solid var(--fg);
   transform: skewX(-20deg);
 }
 

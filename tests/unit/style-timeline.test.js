@@ -41,6 +41,32 @@ describe("styleTimeline", () => {
     assert.equal(list.at(-1).toMs, -60 * MINUTE);
   });
 
+  it("agrees with resolveStyle throughout, across many configurations", () => {
+    let seed = 37;
+    const random = (n) => (seed = (seed * 1664525 + 1013904223) >>> 0) % n;
+    for (let run = 0; run < 300; run++) {
+      const duration = 1 + random(90);
+      const styles = defaultStyles().map((s) => ({ ...s, enabled: random(4) > 0 }));
+      for (let i = random(6); i > 0; i--) {
+        const start = [
+          { minutes: random(200) - 100, plusDuration: false },
+          { minutes: random(20) - 10, plusDuration: true },
+          { expression: "$duration / 2" },
+          { expression: "1 / ($duration - 5)" },
+        ][random(4)];
+        styles.push(custom(`c${i}`, 0, { start, enabled: random(4) > 0 }));
+      }
+      const list = sections(styles, duration);
+      for (let i = 1; i < list.length; i++) assert.equal(list[i].fromMs, list[i - 1].toMs);
+      assert.equal(list.at(-1).toMs, -60 * MINUTE);
+      for (const { style, fromMs, toMs } of list) {
+        const middle = fromMs === Infinity ? toMs + MINUTE : (fromMs + toMs) / 2;
+        // A section can't cross zero, except the fallback when nothing else is enabled.
+        if (middle !== 0) assert.equal(resolveStyle(styles, middle, duration).style ?? null, style);
+      }
+    }
+  });
+
   it("moves relative starts with the duration", () => {
     assert.deepEqual(summary(defaultStyles(), 20), [
       ["inactive", Infinity, 25],
@@ -192,5 +218,12 @@ describe("styleTimeline fades", () => {
     assert.equal(next.id, "inactive");
     // Halfway through two hours when the timer stops: halfway from black to #2b2f36.
     assert.equal(endBackground, "#16181b");
+  });
+
+  it("places a late fade along the part of the section the timer reaches", () => {
+    const far = (...effects) => [...fallback(), custom("far", -120, { effects })];
+    assert.equal(fadeOf(far(fade(1800)), "far").startFraction, 0.5);
+    // Starts after the timer stops, though before the style would end.
+    assert.equal(fadeOf(far(fade(4000)), "far"), null);
   });
 });

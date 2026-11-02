@@ -1,4 +1,4 @@
-import { test, expect, MINUTE } from "./fixtures.js";
+import { test, expect, HOUR, MINUTE, SECOND } from "./fixtures.js";
 
 const GREY = "rgb(43, 47, 54)";
 const BLUE = "rgb(58, 123, 213)";
@@ -37,24 +37,69 @@ test.describe("style timeline", () => {
     await expect(band(timer, "overtime")).toHaveCSS("background-color", RED);
   });
 
-  test("matches what the timer shows either side of each marker", async ({ timer }) => {
+  test("matches what the timer shows either side of each marker, until it stops", async ({ timer }) => {
+    await timer.openConfig();
+    await timer.editStyle("Overtime");
+    await timer.styleStart.fill("-5"); // So Inactive returns before the timer stops.
+    await timer.styleDone.click();
+
+    const ids = await sectionIds(timer);
+    const markers = await times(timer);
+    expect(ids).toEqual(["inactive", "starting-soon", "active", "wrap-it-up", "overtime", "inactive"]);
+    expect(markers).toEqual([...DEFAULT_TIMES, "-05:00"]);
+    await timer.saveConfig();
+
+    const clockMs = (text) => {
+      const [minutes, seconds] = text.replace("-", "").split(":").map(Number);
+      return (text.startsWith("-") ? -1 : 1) * (minutes * MINUTE + seconds * SECOND);
+    };
     await timer.scheduleAt("10:30"); // 35 minutes from zero, with the default 5 minute talk.
-    await timer.jump(25 * MINUTE - 1000);
-    await timer.expectStyle("inactive");
-    await timer.advance(1000); // 10:00
-    await timer.expectStyle("starting-soon");
-    await timer.jump(5 * MINUTE - 1000);
-    await timer.expectStyle("starting-soon");
-    await timer.advance(1000); // 05:00
-    await timer.expectStyle("active");
-    await timer.jump(3 * MINUTE - 1000);
-    await timer.expectStyle("active");
-    await timer.advance(1000); // 02:00
-    await timer.expectStyle("wrap-it-up");
-    await timer.jump(2 * MINUTE - 1000);
-    await timer.expectStyle("wrap-it-up");
-    await timer.advance(1000); // 00:00
-    await timer.expectStyle("overtime");
+    let remaining = 35 * MINUTE;
+    const goTo = async (ms) => {
+      await timer.jump(remaining - ms);
+      remaining = ms;
+    };
+    for (const [i, marker] of markers.entries()) {
+      const at = clockMs(marker);
+      // Down to zero a style takes over at its marker; over time, just after it.
+      const lastOfPrevious = at >= 0 ? at + SECOND : at;
+      await goTo(lastOfPrevious);
+      await timer.expectStyle(ids[i]);
+      await goTo(lastOfPrevious - SECOND);
+      await timer.expectStyle(ids[i + 1]);
+    }
+    await goTo(-HOUR);
+    await timer.expectState("stopped");
+    await timer.expectStyle(ids.at(-1));
+  });
+
+  test("draws an arrow with markers, break marks, and widths that aren't to scale", async ({ timer }) => {
+    await timer.openConfig();
+    const sections = timer.timeline.locator("li");
+
+    // A marker at each change, but not before the lead-in.
+    await expect(sections.first()).toHaveCSS("border-left-style", "none");
+    await expect(section(timer, "starting-soon")).toHaveCSS("border-left-style", "solid");
+    await expect(section(timer, "overtime")).toHaveCSS("border-left-style", "solid");
+
+    // Only the last section has the arrowhead, which comes to a point at the end of its box.
+    const clip = (id) => band(timer, id).evaluate((element) => getComputedStyle(element).clipPath);
+    expect(await clip("overtime")).toContain("100% 50%");
+    expect(await clip("active")).not.toContain("100% 50%");
+
+    // Sections cut short have a break mark, and others don't.
+    const breakMark = (id) =>
+      band(timer, id).evaluate((element) => getComputedStyle(element, "::after").content);
+    expect(await breakMark("inactive")).not.toBe("none");
+    expect(await breakMark("overtime")).not.toBe("none");
+    expect(await breakMark("active")).toBe("none");
+
+    // Longer sections are wider, though an hour isn't 30 times 2 minutes.
+    const width = async (id) => (await section(timer, id).boundingBox()).width;
+    const [wrap, soon, over] = [await width("wrap-it-up"), await width("starting-soon"), await width("overtime")];
+    expect(soon).toBeGreaterThan(wrap);
+    expect(over).toBeGreaterThan(soon);
+    expect(over).toBeLessThan(wrap * 4);
   });
 
   test("gives screen readers the whole timeline as text", async ({ timer }) => {
