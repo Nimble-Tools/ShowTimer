@@ -17,6 +17,7 @@ import {
   parseStyleName,
   resolveStyle,
   sortStylesForDisplay,
+  styleAfter,
   startMinutes,
   styleToCss,
 } from "../../public/styles-core.js";
@@ -104,6 +105,29 @@ describe("resolveStyle with the default styles", () => {
     assert.deepEqual(resolveStyle(styles, MINUTE, DURATION), { style: styles[4], from: 2 * MINUTE, to: 0 });
     assert.deepEqual(resolveStyle(styles, -3 * MINUTE, DURATION), { style: styles[3], from: 0, to: -60 * MINUTE });
     assert.deepEqual(resolveStyle(styles, -61 * MINUTE, DURATION), { style: styles[0], from: -60 * MINUTE, to: -Infinity });
+  });
+
+  it("finds the style that takes over when each span ends", () => {
+    const after = (to) => styleAfter(styles, to, DURATION)?.id;
+    assert.equal(after(10 * MINUTE), "starting-soon");
+    assert.equal(after(5 * MINUTE), "active");
+    assert.equal(after(2 * MINUTE), "wrap-it-up");
+    assert.equal(after(0), "overtime");
+    assert.equal(after(-60 * MINUTE), "inactive");
+  });
+
+  it("steps through styles over time, skipping disabled ones and one starting at zero", () => {
+    const late = custom("late", -5);
+    const after = (list, to) => styleAfter(list, to, DURATION)?.id;
+    assert.equal(after([...styles, late], 0), "late");
+    assert.equal(after([...styles, late], -5 * MINUTE), "overtime");
+    assert.equal(after([...styles, { ...late, enabled: false }], 0), "overtime");
+    assert.equal(after([...styles, custom("zero", 0)], 0), "overtime");
+  });
+
+  it("has no style to take over past the last one if the fallback is disabled", () => {
+    const noFallback = styles.map((style) => (style.id === "inactive" ? { ...style, enabled: false } : style));
+    assert.equal(styleAfter(noFallback, -60 * MINUTE, DURATION), null);
   });
 
   it("leaves Active showing when the talk is no longer than Wrap it up!'s start", () => {

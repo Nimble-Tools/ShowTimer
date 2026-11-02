@@ -32,7 +32,7 @@ import {
   talkDurationMs,
   talkLabel,
 } from "./talks-core.js";
-import { resolveStyle } from "./styles-core.js";
+import { resolveStyle, styleAfter } from "./styles-core.js";
 import { effectState, fadeStyle } from "./effects-core.js";
 import { applyStyleVars, setupStyleEditor } from "./style-editor.js";
 import { setupThemePicker } from "./theme-picker.js";
@@ -317,12 +317,17 @@ function styleRemaining(now, remaining) {
 
 let appliedStyleKey = null;
 
-/** Effects only play while time is moving: waiting for the start, or running. */
+/**
+ * A strobe plays only while time is moving: waiting for the start, or running.
+ * A fade follows the time left, so it holds once paused or stopped.
+ */
 function currentEffects(resolved, distance) {
   const { style, from, to } = resolved;
-  if (!style || (state.mode !== "running" && state.mode !== "waiting")) return { strobe: false, fade: null };
+  if (!style || state.mode === "idle") return { strobe: false, fade: null };
   // Counting down, so the style began at `from` and ends at `to`.
-  return effectState(style.effects, from - distance, from - to);
+  const effects = effectState(style.effects, from - distance, from - to);
+  const moving = state.mode === "running" || state.mode === "waiting";
+  return moving ? effects : { ...effects, strobe: false };
 }
 
 function renderStyle(now, remaining) {
@@ -334,8 +339,7 @@ function renderStyle(now, remaining) {
 
   let { style } = resolved;
   if (style && effects.fade !== null) {
-    // The style that takes over at the end of this one.
-    style = fadeStyle(style, resolveStyle(state.styles, resolved.to, durationMinutes).style, effects.fade);
+    style = fadeStyle(style, styleAfter(state.styles, resolved.to, durationMinutes), effects.fade);
   }
   const key = style ? JSON.stringify(style) : "";
   if (key !== appliedStyleKey) {
