@@ -121,6 +121,7 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
         name.setAttribute("aria-hidden", "true");
         name.textContent = style?.name ?? "No style";
         name.title = name.textContent; // A long name is cut off after a few lines.
+        if (style) applyStyleVars(name, style);
 
         const description = document.createElement("span");
         description.className = "visually-hidden";
@@ -130,7 +131,22 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
         return item;
       })
     );
+    placeTimelineNames();
   }
+
+  /** Puts each style's name on the arrow, in the font and color it uses, wherever it fits on one line. */
+  function placeTimelineNames() {
+    const styled = [...els.timeline.children].filter((item) => item.dataset.styleId);
+    for (const item of styled) item.classList.add("has-name-on-arrow");
+    const tooLong = styled.filter((item) => {
+      const name = item.querySelector(".timeline-name");
+      return name.scrollWidth > name.clientWidth;
+    });
+    for (const item of tooLong) item.classList.remove("has-name-on-arrow");
+  }
+
+  window.addEventListener("resize", placeTimelineNames);
+  document.fonts?.addEventListener?.("loadingdone", placeTimelineNames);
 
   // ---- List ----------------------------------------------------------------
 
