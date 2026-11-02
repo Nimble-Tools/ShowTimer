@@ -31,7 +31,7 @@ With Active disabled, Wrap it up! covers the whole of a 1-minute talk.
 - **The issue's "doors open" constraint gives way to decision 4.** A fixed 30-minute start on a 5-minute talk can't be told apart from Wrap it up! at 2 minutes on a 1-minute talk, and the decision was no setting and the same rule for all. That use keeps working as `duration + 25`, and a style still set the old way gets a warning. This changes behavior for anyone with such a style saved.
 - **Other expressions, such as `$duration * 2`, count as measured from the end,** so they don't show before the start and get a warning.
 - **A style that takes over runs from the talk's start for its effects,** so a fade or strobe times from when it really begins, not from its stored start.
-- **Warnings appear in the style's row and in its editor,** as text. There are three: no value at this duration, won't show because other styles cover its time, and starts with the talk rather than at its stored start.
+- **Warnings appear in the style's row and in its editor,** as text. There are four: no value at this duration, won't show because other styles cover its time, starts with the talk rather than at its stored start, and applies over time because a start relative to the duration went past zero.
 
 ## Phase 1: Style rule
 
@@ -50,15 +50,24 @@ With Active disabled, Wrap it up! covers the whole of a 1-minute talk.
 ## Phase 3: Docs
 
 - [x] Describe the rule in the README's description of styles, and in the hint in configuration
-- [ ] Record the decision on the issue
+- [x] Record the decision on the issue
 
 ## Phase 4: Independent review
 
-- [ ] Review the full diff with a separate agent, including security, performance, and accessibility
-- [ ] Address all significant findings, or record why not
+- [x] Review the full diff with a separate agent, including security, performance, and accessibility
+- [x] Address all significant findings, or record why not
 
 ## Phase 5: Final verification
 
-- [ ] `npm test` passes after the last code change (the workflow's default `dotnet` command doesn't apply here)
-- [ ] Check the warning at desktop and phone widths
+- [x] `npm test` passes after the last code change (the workflow's default `dotnet` command doesn't apply here)
+- [x] Check the warning at desktop and phone widths
 - [ ] Open a PR with `Fixes #35`
+
+## Review findings not addressed
+
+- **Warnings use the configuration's duration, not a scheduled talk's own.** With the configuration at 5 minutes and a scheduled 1-minute talk, nothing warns that Wrap it up! won't show. The comment says "the current duration", and the style list and timeline both use the configuration's, so all three stay consistent. Warning per talk would be a larger change, best made to all three together.
+- **A saved fixed-start "doors open" style changes behavior with no migration.** It follows from decisions 1 and 4, since a stored style doesn't say what it's for. It gets a warning, but only when configuration is opened. The PR and the issue call this out for confirmation.
+- **Editing the duration during a run changes styles at once,** though the dialog says the new duration applies on reset. `main` already does this. This branch adds one more case: shortening a run below the time left shows Starting Soon rather than Wrap it up!. The cause is `state.durationMs` changing mid-run, which is a separate bug.
+- **The editor can say "Starts at 2 min" directly above "Won't show".** The first line still reports what the start evaluates to, which matters for expressions, and the warning right below it explains the rest.
+- **Warnings in the style list aren't announced as the duration is typed.** A live region would speak on every keystroke. They're read as each row's description, and the editor's warning is announced.
+- **No test covers the warning's color or layout.** A review measured its contrast at 9.08:1 and 11.35:1, and checked the layout at 1280px and 360px.

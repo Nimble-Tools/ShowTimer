@@ -180,13 +180,57 @@ describe("resolveStyle with the default styles", () => {
       assert.deepEqual([from, to], [MINUTE, 0]);
     });
 
-    it("is passed over when a relative start is closer to zero", () => {
+    it("gives way to a style that starts during the talk", () => {
       const list = [...withoutActive, custom("late", 1, { start: { minutes: -1, plusDuration: true } })];
-      // Duration 3: "late" starts at 2, tied with Wrap it up! and after it in the list.
-      assert.equal(resolvedId(list, MINUTE, 3), "wrap-it-up");
-      // Duration 1.5: "late" starts at 0.5, so it's closer once it begins, and Wrap it up! covers until then.
+      // At 1.5, "late" starts at 0.5, so Wrap it up! covers the talk until then.
       assert.equal(resolvedId(list, MINUTE, 1.5), "wrap-it-up");
       assert.equal(resolvedId(list, 0.5 * MINUTE, 1.5), "late");
+    });
+
+    describe("against a closer start that also shows before the talk", () => {
+      const moved = (start) => defaultStyles().map((style) => {
+        if (style.id === "active") return { ...style, start };
+        return style.id === "wrap-it-up" ? { ...style, enabled: false } : style;
+      });
+      const activeAt2 = moved({ minutes: 1, plusDuration: true });
+
+      it("doesn't take over", () => {
+        const list = [...activeAt2, custom("far", 5)];
+        assert.equal(resolvedId(list, 1.5 * MINUTE, 1), "active");
+        assert.equal(resolvedId(list, 0.5 * MINUTE, 1), "active");
+        assert.deepEqual(resolveStyle(list, 0.5 * MINUTE, 1).from, 2 * MINUTE);
+      });
+
+      it("doesn't take over from a style whose start is much further out", () => {
+        const list = [...withoutActive, custom("doors", 30)];
+        assert.equal(resolvedId(list, 3 * MINUTE), "starting-soon");
+        assert.deepEqual([resolveStyle(list, 3 * MINUTE, 5).from, resolveStyle(list, 3 * MINUTE, 5).to], [10 * MINUTE, 2 * MINUTE]);
+      });
+
+      it("uses list order when their starts tie", () => {
+        const tied = [custom("a", 1, { start: { minutes: 1, plusDuration: true } }), custom("b", 2)];
+        const base = defaultStyles().filter((style) => style.id === "inactive");
+        assert.equal(resolvedId([...base, ...tied], 0.5 * MINUTE, 1), "a");
+        // "a" still shows before the talk, as "b" can't, until "b" begins with the talk.
+        const reversed = [...base, ...[...tied].reverse()];
+        assert.equal(resolvedId(reversed, 1.5 * MINUTE, 1), "a");
+        assert.equal(resolvedId(reversed, 0.5 * MINUTE, 1), "b");
+        assert.equal(resolveStyle(reversed, 1.5 * MINUTE, 1).to, MINUTE);
+      });
+
+      it("hands over at the start that's really next, when a held back style sits between", () => {
+        const list = [
+          ...defaultStyles().filter((style) => style.id === "inactive"),
+          custom("soon", 1, { start: { minutes: 5, plusDuration: true } }),
+          custom("held", 3),
+          custom("near", 1, { start: { minutes: 1, plusDuration: true } }),
+        ];
+        // The talk is 1 minute. "held" can't show before it, and "near" is closer once it begins.
+        assert.equal(resolvedId(list, 4 * MINUTE, 1), "soon");
+        assert.equal(resolveStyle(list, 4 * MINUTE, 1).to, 2 * MINUTE);
+        assert.equal(resolvedId(list, 1.5 * MINUTE, 1), "near");
+        assert.equal(resolvedId(list, 0.5 * MINUTE, 1), "near");
+      });
     });
 
     it("picks the closest to zero when several are past the duration, whatever the list order", () => {
@@ -318,8 +362,8 @@ describe("styleWarnings", () => {
   });
 
   it("warns that Wrap it up! won't show in a talk no longer than its start", () => {
-    assert.match(warningFor(defaultStyles(), "wrap-it-up", 1), /^Won't show: another style is closer/);
-    assert.match(warningFor(defaultStyles(), "wrap-it-up", 1.5), /^Won't show: another style is closer/);
+    assert.match(warningFor(defaultStyles(), "wrap-it-up", 1), /^Won't show: another style covers the whole talk/);
+    assert.match(warningFor(defaultStyles(), "wrap-it-up", 1.5), /^Won't show: another style covers the whole talk/);
     assert.match(warningFor(defaultStyles(), "wrap-it-up", 2), /^Won't show: other styles cover/);
     assert.deepEqual([...styleWarnings(defaultStyles(), 1).keys()], ["wrap-it-up"]);
   });
@@ -351,6 +395,26 @@ describe("styleWarnings", () => {
     const styles = [...defaultStyles(), custom("twin", 2), custom("too-late", -70)];
     assert.match(warningFor(styles, "twin"), /^Won't show: other styles cover/);
     assert.match(warningFor(styles, "too-late"), /^Won't show: other styles cover/);
+  });
+
+  it("warns when a start relative to the duration ends up over time", () => {
+    for (const start of [{ minutes: -5, plusDuration: true }, { expression: "$duration - 5" }]) {
+      const styles = [...defaultStyles(), custom("x", 1, { start })];
+      assert.match(warningFor(styles, "x", 3), /^Applies over time/, JSON.stringify(start));
+      assert.equal(warningFor(styles, "x", 8), undefined, JSON.stringify(start));
+    }
+  });
+
+  it("doesn't warn about a start meant to be over time", () => {
+    for (const start of [{ minutes: -5, plusDuration: false }, { expression: "-$duration" }]) {
+      assert.equal(warningFor([...defaultStyles(), custom("x", 1, { start })], "x"), undefined, JSON.stringify(start));
+    }
+  });
+
+  it("names no closer style when two past the duration tie", () => {
+    const styles = [defaultStyles()[0], custom("a", 3), custom("b", 3)];
+    assert.match(warningFor(styles, "a", 1), /^Starts with the talk/);
+    assert.match(warningFor(styles, "b", 1), /covers the whole talk/);
   });
 
   it("ignores disabled styles, and the fallback", () => {

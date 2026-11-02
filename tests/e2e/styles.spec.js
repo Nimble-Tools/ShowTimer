@@ -465,7 +465,7 @@ test.describe("style warnings in configuration", () => {
     await timer.openConfig();
 
     await timer.configDuration.fill("1");
-    await expect(warning(timer, "Wrap it up!")).toHaveText(/^Won't show: another style is closer/);
+    await expect(warning(timer, "Wrap it up!")).toHaveText(/^Won't show: another style covers the whole talk/);
 
     await timer.configDuration.fill("2");
     await expect(warning(timer, "Wrap it up!")).toHaveText(/^Won't show: other styles cover/);
@@ -492,6 +492,38 @@ test.describe("style warnings in configuration", () => {
     await timer.configDuration.fill("1");
     await expect(timer.styleRow("Wrap it up!")).toHaveAccessibleDescription(/^Won't show/);
     await expect(timer.styleRow("Active")).toHaveAccessibleDescription("");
+  });
+
+  test("describes the row when a style's id has a space, as an imported one can", async ({ page, timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 5,
+      styles: [{ id: "my doors", name: "My doors", enabled: true, start: { minutes: 30, plusDuration: false } }],
+    });
+    await page.reload();
+    await timer.openConfig();
+    await expect(timer.styleRow("My doors")).toHaveAccessibleDescription(/^Won't show/);
+  });
+
+  test("the editor keeps list order for ties", async ({ page, timer }) => {
+    await timer.open();
+    await timer.openConfig();
+    const note = page.locator("#style-start-warning");
+    await expect(note).toHaveRole("status");
+
+    // A new style tied with Wrap it up! goes after it.
+    await timer.addStyle.click();
+    await timer.styleStart.fill("2");
+    await expect(note).toHaveText(/^Won't show: other styles cover/);
+    await timer.styleCancel.click();
+
+    // At 2 minutes, Active ties with Wrap it up! and comes first, whichever is being edited.
+    await timer.configDuration.fill("2");
+    await timer.editStyle("Active");
+    await expect(note).toBeEmpty();
+    await timer.styleCancel.click();
+    await timer.editStyle("Wrap it up!");
+    await expect(note).toHaveText(/^Won't show: other styles cover/);
   });
 
   test("shows in the editor as the start is typed", async ({ timer, page }) => {

@@ -139,7 +139,7 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     renderTimeline(duration);
     const warnings = styleWarnings(getStyles(), duration);
     els.list.replaceChildren(
-      ...sortStylesForDisplay(getStyles(), duration).map((style) => {
+      ...sortStylesForDisplay(getStyles(), duration).map((style, index) => {
         const item = document.createElement("li");
         item.className = "style-item";
         item.dataset.styleId = style.id;
@@ -171,7 +171,8 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
         if (warning) {
           const note = document.createElement("span");
           note.className = "style-warning";
-          note.id = `style-warning-${style.id}`;
+          // Not from the style's id: an imported one can contain spaces, which would split the reference.
+          note.id = `style-warning-${index}`;
           note.textContent = warning;
           row.append(note);
           // The row's label replaces its text for screen readers.
@@ -357,7 +358,6 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     // In list order, as ties depend on it; a new style goes at the end.
     const draft = isNew ? [...getStyles(), editing] : getStyles().map((style) => (style.id === editing.id ? editing : style));
     els.startWarning.textContent = styleWarnings(draft, duration).get(editing.id) ?? "";
-    els.startWarning.hidden = !els.startWarning.textContent;
   }
 
   function openEditor(id) {
