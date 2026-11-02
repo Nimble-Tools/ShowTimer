@@ -64,6 +64,7 @@ const els = {
   reset: $("reset"),
   fullscreen: $("fullscreen"),
   configButton: $("config-button"),
+  githubLink: $("github-link"),
   configDialog: $("config-dialog"),
   configForm: $("config-form"),
   configDuration: $("config-duration"),
@@ -606,6 +607,9 @@ els.reset.addEventListener("click", () => {
 els.controls.addEventListener("click", (event) => {
   const control = event.target.closest("button, summary");
   if (control && event.detail > 0) control.blur();
+});
+els.githubLink.addEventListener("click", (event) => {
+  if (event.detail > 0) els.githubLink.blur();
 });
 
 function toggleFullscreen() {
