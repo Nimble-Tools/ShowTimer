@@ -14,6 +14,7 @@ import {
   parseStyleName,
   sortStylesForDisplay,
   startMinutes,
+  styleTimeline,
   styleToCss,
 } from "./styles-core.js";
 import { EFFECT_TYPES, MAX_EFFECT_SECONDS, describeEffect, newEffect, parseEffectSeconds } from "./effects-core.js";
@@ -34,6 +35,7 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
   const $ = (id) => document.getElementById(id);
   const els = {
     list: $("style-list"),
+    timeline: $("style-timeline"),
     add: $("add-style"),
     dialog: $("style-dialog"),
     form: $("style-form"),
@@ -73,10 +75,66 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
   let editing = null; // working copy of the style in the dialog
   let isNew = false;
 
+  // ---- Timeline ------------------------------------------------------------
+
+  /** What a section covers, in words: the visible labels are hidden from screen readers in favor of this. */
+  function describeSection({ style, fromMs, toMs, fade }, isLast) {
+    const name = style?.name ?? "No style";
+    const from = fromMs === Infinity ? "before" : `from ${formatClock(fromMs)}`;
+    let span;
+    if (isLast) span = fromMs === Infinity ? "until the timer stops" : `${from} until the timer stops at ${formatClock(toMs)}`;
+    else span = fromMs === Infinity ? `${from} ${formatClock(toMs)}` : `${from} to ${formatClock(toMs)}`;
+    return `${name}: ${span}${fade ? `, fading toward ${fade.next.name}` : ""}.`;
+  }
+
+  function renderTimeline(duration) {
+    const sections = styleTimeline(getStyles(), duration);
+    els.timeline.replaceChildren(
+      ...sections.map((section, index) => {
+        const { style, fromMs, cut, fade, weight } = section;
+        const item = document.createElement("li");
+        item.className = "timeline-section";
+        item.dataset.styleId = style?.id ?? "";
+        item.style.flexGrow = String(weight);
+
+        const time = document.createElement("span");
+        time.className = "timeline-time";
+        time.setAttribute("aria-hidden", "true");
+        time.textContent = fromMs === Infinity ? "" : formatClock(fromMs);
+
+        const arrow = document.createElement("span");
+        arrow.className = "timeline-arrow";
+        const band = document.createElement("span");
+        band.className = "timeline-band";
+        arrow.append(band);
+        band.classList.toggle("is-cut", cut);
+        band.classList.toggle("is-unstyled", !style);
+        if (style) band.style.background = style.background;
+        if (fade) {
+          band.style.background = `linear-gradient(to right, ${style.background} ${fade.startFraction * 100}%, ${fade.endBackground})`;
+        }
+
+        const name = document.createElement("span");
+        name.className = "timeline-name";
+        name.setAttribute("aria-hidden", "true");
+        name.textContent = style?.name ?? "No style";
+        name.title = name.textContent; // A long name is cut off after a few lines.
+
+        const description = document.createElement("span");
+        description.className = "visually-hidden";
+        description.textContent = describeSection(section, index === sections.length - 1);
+
+        item.append(time, arrow, name, description);
+        return item;
+      })
+    );
+  }
+
   // ---- List ----------------------------------------------------------------
 
   function renderList() {
     const duration = getDurationMinutes();
+    renderTimeline(duration);
     els.list.replaceChildren(
       ...sortStylesForDisplay(getStyles(), duration).map((style) => {
         const item = document.createElement("li");

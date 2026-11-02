@@ -415,6 +415,101 @@ input[aria-invalid="true"] {
   width: auto;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The arrow of styles above the list. Scrolls sideways if there are too many to fit. */
+.style-timeline {
+  display: flex;
+  min-width: 0;
+  margin: 0.25rem 0;
+  padding: 0 0 0.25rem;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.timeline-section {
+  position: relative;
+  /* flex-grow is set per section: see styleTimeline. */
+  flex: 1 0 3.25rem;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 1.1rem 2.5rem auto;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+}
+
+/* A marker where the style changes, running through the time, arrow, and name. */
+.timeline-section + .timeline-section {
+  border-left: 2px solid var(--fg);
+}
+
+.timeline-time {
+  padding-left: 0.2rem;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* An outline around the clipped band, so a style as dark as the dialog still shows. */
+.timeline-arrow {
+  display: grid;
+  filter: drop-shadow(0 1px 0 var(--muted)) drop-shadow(0 -1px 0 var(--muted)) drop-shadow(1px 0 0 var(--muted));
+}
+
+/* The tall box leaves room for the arrowhead, and the sections are clipped to the shaft. */
+.timeline-band {
+  position: relative;
+  clip-path: polygon(0 20%, 100% 20%, 100% 80%, 0 80%);
+  /* The colors are the content, so high contrast modes shouldn't replace them. */
+  forced-color-adjust: none;
+}
+
+.timeline-section:last-child .timeline-band {
+  clip-path: polygon(
+    0 20%,
+    calc(100% - 1.25rem) 20%,
+    calc(100% - 1.25rem) 0,
+    100% 50%,
+    calc(100% - 1.25rem) 100%,
+    calc(100% - 1.25rem) 80%,
+    0 80%
+  );
+}
+
+/* No style applies here, so the page's plain background shows. */
+.timeline-band.is-unstyled {
+  background: repeating-linear-gradient(135deg, var(--border) 0 0.25rem, transparent 0.25rem 0.5rem);
+}
+
+/* A // break: light lines around a dark gap, so one or the other shows on any style color. */
+.timeline-band.is-cut::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 40%;
+  width: 0.5rem;
+  background: #161a20;
+  border-inline: 2px solid var(--fg);
+  transform: skewX(-20deg);
+}
+
+.timeline-name {
+  display: -webkit-box;
+  padding-left: 0.2rem;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 .style-list {
   display: grid;
   gap: 0.4rem;
