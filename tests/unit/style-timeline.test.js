@@ -10,11 +10,29 @@ const sections = (styles, duration = DURATION) => styleTimeline(styles, duration
 const summary = (styles, duration = DURATION) =>
   sections(styles, duration).map((s) => [s.style?.id ?? null, s.fromMs / MINUTE, s.toMs / MINUTE]);
 const without = (styles, ...ids) => styles.map((s) => (ids.includes(s.id) ? { ...s, enabled: false } : s));
+// The built-ins with Wrap it up! at a fixed start, as configs saved before it
+// became $duration / 10 still have it: the case for starts that ignore the duration.
+const fixedWrapStyles = () =>
+  defaultStyles().map((s) => (s.id === "wrap-it-up" ? { ...s, start: { minutes: 2, plusDuration: false }, effects: [] } : s));
 const fallback = () => defaultStyles().filter((s) => s.id === "inactive");
 
 describe("styleTimeline", () => {
+  it("runs the defaults through Wrap it up! at a tenth of the time, fading into Overtime", () => {
+    assert.deepEqual(summary(defaultStyles(), 60), [
+      ["inactive", Infinity, 65],
+      ["starting-soon", 65, 60],
+      ["active", 60, 6],
+      ["wrap-it-up", 6, 0],
+      ["overtime", 0, -60],
+    ]);
+    const { fade } = sections(defaultStyles(), 60).find((s) => s.style?.id === "wrap-it-up");
+    assert.equal(fade.next.id, "overtime");
+    assert.equal(fade.startFraction, 0);
+    assert.equal(fade.endBackground, fade.next.background);
+  });
+
   it("orders the defaults by time, with Overtime changing at 0 rather than its stored -60", () => {
-    assert.deepEqual(summary(defaultStyles()), [
+    assert.deepEqual(summary(fixedWrapStyles()), [
       ["inactive", Infinity, 10],
       ["starting-soon", 10, 5],
       ["active", 5, 2],
@@ -25,7 +43,7 @@ describe("styleTimeline", () => {
 
   it("leaves Wrap it up! out of a talk no longer than its start", () => {
     for (const duration of [1, 2]) {
-      assert.deepEqual(summary(defaultStyles(), duration), [
+      assert.deepEqual(summary(fixedWrapStyles(), duration), [
         ["inactive", Infinity, duration + 5],
         ["starting-soon", duration + 5, duration],
         ["active", duration, 0],
@@ -35,7 +53,7 @@ describe("styleTimeline", () => {
   });
 
   it("starts a style that takes over at the talk's start, not its stored start", () => {
-    assert.deepEqual(summary(without(defaultStyles(), "active"), 1), [
+    assert.deepEqual(summary(without(fixedWrapStyles(), "active"), 1), [
       ["inactive", Infinity, 6],
       ["starting-soon", 6, 1],
       ["wrap-it-up", 1, 0],
@@ -44,7 +62,7 @@ describe("styleTimeline", () => {
   });
 
   it("agrees with resolveStyle at both ends of every section", () => {
-    const styles = [...defaultStyles(), custom("fixed", -5), custom("tenth", 0, { start: { expression: "$duration / 10" } })];
+    const styles = [...fixedWrapStyles(), custom("fixed", -5), custom("tenth", 0, { start: { expression: "$duration / 10" } })];
     for (const { style, fromMs, toMs } of sections(styles)) {
       if (Number.isFinite(fromMs)) {
         // Counting down a style applies from its start; over time, from just after it.
@@ -56,7 +74,7 @@ describe("styleTimeline", () => {
   });
 
   it("has no gaps, and ends where the timer stops", () => {
-    const list = sections([...defaultStyles(), custom("a", -10), custom("b", 3)]);
+    const list = sections([...fixedWrapStyles(), custom("a", -10), custom("b", 3)]);
     for (let i = 1; i < list.length; i++) assert.equal(list[i].fromMs, list[i - 1].toMs);
     assert.equal(list.at(-1).toMs, -60 * MINUTE);
   });
@@ -66,7 +84,7 @@ describe("styleTimeline", () => {
     const random = (n) => (seed = (seed * 1664525 + 1013904223) >>> 0) % n;
     for (let run = 0; run < 300; run++) {
       const duration = 1 + random(90);
-      const styles = defaultStyles().map((s) => ({ ...s, enabled: random(4) > 0 }));
+      const styles = fixedWrapStyles().map((s) => ({ ...s, enabled: random(4) > 0 }));
       for (let i = random(6); i > 0; i--) {
         const start = [
           { minutes: random(200) - 100, plusDuration: false },
@@ -88,7 +106,7 @@ describe("styleTimeline", () => {
   });
 
   it("moves relative starts with the duration", () => {
-    assert.deepEqual(summary(defaultStyles(), 20), [
+    assert.deepEqual(summary(fixedWrapStyles(), 20), [
       ["inactive", Infinity, 25],
       ["starting-soon", 25, 20],
       ["active", 20, 2],
@@ -98,7 +116,7 @@ describe("styleTimeline", () => {
   });
 
   it("leaves out disabled styles", () => {
-    assert.deepEqual(summary(without(defaultStyles(), "wrap-it-up", "starting-soon")), [
+    assert.deepEqual(summary(without(fixedWrapStyles(), "wrap-it-up", "starting-soon")), [
       ["inactive", Infinity, 5],
       ["active", 5, 0],
       ["overtime", 0, -60],
@@ -106,7 +124,7 @@ describe("styleTimeline", () => {
   });
 
   it("places an expression start at its value", () => {
-    const styles = [...defaultStyles(), custom("tenth", 0, { start: { expression: "$duration / 10" } })];
+    const styles = [...fixedWrapStyles(), custom("tenth", 0, { start: { expression: "$duration / 10" } })];
     assert.deepEqual(summary(styles).slice(3), [
       ["wrap-it-up", 2, 0.5],
       ["tenth", 0.5, 0],
@@ -115,7 +133,7 @@ describe("styleTimeline", () => {
   });
 
   it("ignores an expression with no value at this duration, and shows it at others", () => {
-    const styles = [...defaultStyles(), custom("odd", 0, { start: { expression: "1 / ($duration - 5)" } })];
+    const styles = [...fixedWrapStyles(), custom("odd", 0, { start: { expression: "1 / ($duration - 5)" } })];
     assert.ok(!sections(styles, 5).some((s) => s.style?.id === "odd"));
     assert.ok(sections(styles, 6).some((s) => s.style?.id === "odd"));
   });
@@ -140,12 +158,12 @@ describe("styleTimeline", () => {
   });
 
   it("shows Inactive after the last over-time style only if the timer gets there", () => {
-    const early = defaultStyles().map((s) => (s.id === "overtime" ? { ...s, start: { minutes: -5, plusDuration: false } } : s));
+    const early = fixedWrapStyles().map((s) => (s.id === "overtime" ? { ...s, start: { minutes: -5, plusDuration: false } } : s));
     assert.deepEqual(summary(early).slice(-2), [
       ["overtime", 0, -5],
       ["inactive", -5, -60],
     ]);
-    assert.equal(sections(defaultStyles()).at(-1).style.id, "overtime");
+    assert.equal(sections(fixedWrapStyles()).at(-1).style.id, "overtime");
   });
 
   it("stops at the end of the timer, whatever an over-time style's start", () => {
@@ -158,7 +176,7 @@ describe("styleTimeline", () => {
   });
 
   it("shows no style where nothing applies", () => {
-    assert.deepEqual(summary(without(defaultStyles(), "inactive", "overtime")), [
+    assert.deepEqual(summary(without(fixedWrapStyles(), "inactive", "overtime")), [
       [null, Infinity, 10],
       ["starting-soon", 10, 5],
       ["active", 5, 2],
@@ -174,7 +192,7 @@ describe("styleTimeline", () => {
   });
 
   it("cuts the lead-in and long sections short, and widens longer sections less than to scale", () => {
-    const list = sections(defaultStyles());
+    const list = sections(fixedWrapStyles());
     assert.deepEqual(list.map((s) => s.cut), [true, false, false, false, true]);
     const [, soon, active, wrap, over] = list;
     assert.ok(soon.weight > active.weight && active.weight > wrap.weight);
@@ -191,14 +209,14 @@ describe("styleTimeline", () => {
 
 describe("styleTimeline fades", () => {
   const fade = (startSeconds = 0, enabled = true, id = "f") => ({ id, type: "fade", enabled, startSeconds, durationSeconds: 0 });
-  const withEffects = (id, ...effects) => defaultStyles().map((s) => (s.id === id ? { ...s, effects } : s));
+  const withEffects = (id, ...effects) => fixedWrapStyles().map((s) => (s.id === id ? { ...s, effects } : s));
   const fadeOf = (styles, id) => sections(styles).find((s) => s.style?.id === id).fade;
 
   it("has none without an enabled fade", () => {
     assert.equal(fadeOf(withEffects("active"), "active"), null);
     assert.equal(fadeOf(withEffects("active", fade(0, false)), "active"), null);
     // Overtime's default strobe isn't a fade.
-    assert.equal(fadeOf(defaultStyles(), "overtime"), null);
+    assert.equal(fadeOf(fixedWrapStyles(), "overtime"), null);
   });
 
   it("blends fully into the next style", () => {

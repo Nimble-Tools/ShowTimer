@@ -6,8 +6,9 @@
 // ends).
 //   strobe  inverts the screen colors every half second (a CSS animation,
 //           see styles.css)
-//   fade    blends the colors and size toward the next style, reaching it
-//           as the style ends (it always runs to the end of the style)
+//   fade    blends the background and size toward the next style, reaching
+//           it as the style ends (it always runs to the end of the style). The
+//           text switches between the two styles' colors, whichever reads best
 
 // No effect timing can be longer than a day.
 export const MAX_EFFECT_SECONDS = 24 * 60 * 60;
@@ -25,7 +26,10 @@ export function newEffect(id, type) {
 /** The effects a built-in style starts with. */
 export function defaultEffects(styleId) {
   // Catch the speaker's eye when time runs out.
-  return styleId === "overtime" ? [newEffect("strobe", "strobe")] : [];
+  if (styleId === "overtime") return [newEffect("strobe", "strobe")];
+  // Warm up gradually to Overtime's red as the last of the time goes.
+  if (styleId === "wrap-it-up") return [newEffect("fade", "fade")];
+  return [];
 }
 
 /** Validates a number of seconds (whole seconds, 0 to a day). Returns it, or null. */
@@ -104,13 +108,35 @@ export function mixColors(a, b, t) {
     .join("")}`;
 }
 
-/** A style partway (t) through fading into `next`: colors and size blend; font and shadow stay. */
+/** WCAG relative luminance of a "#rrggbb" color. */
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio of two "#rrggbb" colors, from 1 to 21. */
+export function contrastRatio(a, b) {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+/**
+ * A style partway (t) through fading into `next`: the background and size
+ * blend; font and shadow stay. The text doesn't blend, because a dark and a
+ * light color meet in a grey that can't be read on the background between
+ * them, so it uses whichever style's color reads best at this point.
+ */
 export function fadeStyle(style, next, t) {
   if (!next || t <= 0) return style;
+  const background = mixColors(style.background, next.background, t);
+  const nextReadsBetter = contrastRatio(next.color, background) > contrastRatio(style.color, background);
   return {
     ...style,
-    background: mixColors(style.background, next.background, t),
-    color: mixColors(style.color, next.color, t),
+    background,
+    color: t >= 1 || nextReadsBetter ? next.color : style.color,
     sizePercent: style.sizePercent + (next.sizePercent - style.sizePercent) * t,
   };
 }

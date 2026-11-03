@@ -36,9 +36,9 @@ const throwingStorage = {
 };
 
 describe("defaultConfig", () => {
-  it("defaults to a 5 minute timer with the built-in styles from the Default theme", () => {
+  it("defaults to an hour timer with the built-in styles from the Default theme", () => {
     assert.deepEqual(defaultConfig(), {
-      durationMinutes: 5,
+      durationMinutes: 60,
       styles: defaultStyles(),
       themes: [],
       themeId: "default",
@@ -49,7 +49,7 @@ describe("defaultConfig", () => {
   it("returns a fresh object each time", () => {
     const a = defaultConfig();
     a.durationMinutes = 10;
-    assert.equal(defaultConfig().durationMinutes, 5);
+    assert.equal(defaultConfig().durationMinutes, 60);
   });
 });
 
