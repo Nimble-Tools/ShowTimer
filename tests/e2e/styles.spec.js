@@ -169,6 +169,33 @@ test.describe("styles on screen", () => {
     expect(ink.right).toBeLessThanOrEqual(ink.box);
   });
 
+  // Bangers (Overtime) leans past its box too.
+  test("keeps the comic digits inside the readout's box", async ({ page, timer }) => {
+    await timer.open();
+    await timer.setMinutes(0.05);
+    await timer.click(timer.startPause);
+    await timer.advance(4 * SECOND);
+    await timer.expectStyle("overtime");
+    await page.evaluate(() => document.fonts.ready);
+    const ink = await timer.display.evaluate((display) => {
+      const style = getComputedStyle(display);
+      const context = document.createElement("canvas").getContext("2d");
+      context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      context.letterSpacing = style.letterSpacing;
+      const metrics = context.measureText(display.textContent);
+      const range = document.createRange();
+      range.selectNodeContents(display);
+      const text = range.getBoundingClientRect();
+      const box = display.getBoundingClientRect();
+      return {
+        left: text.left - metrics.actualBoundingBoxLeft - box.left,
+        right: box.right - (text.left + metrics.actualBoundingBoxRight),
+      };
+    });
+    expect(ink.left).toBeGreaterThanOrEqual(0);
+    expect(ink.right).toBeGreaterThanOrEqual(0);
+  });
+
   test("follows the duration: Starting Soon is duration + 5", async ({ timer }) => {
     await timer.open();
     await timer.setMinutes(20);
