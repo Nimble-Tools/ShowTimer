@@ -12,6 +12,19 @@ const coverageDir = join(process.cwd(), "coverage", ".v8", "e2e");
 /** 10:00 on a weekday in America/New_York (the configured browser time zone). */
 export const MORNING = new Date("2026-10-28T10:00:00-04:00");
 
+// Most tests are about the timer rather than the defaults, and a short talk with
+// fixed style starts keeps their times simple. First visits are tested separately.
+const STORED_CONFIG = {
+  durationMinutes: 5,
+  styles: [
+    { id: "inactive" },
+    { id: "starting-soon" },
+    { id: "active" },
+    { id: "overtime" },
+    { id: "wrap-it-up", start: { minutes: 2, plusDuration: false }, effects: [] },
+  ],
+};
+
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.coverage.startJSCoverage({ resetOnNavigation: false });
@@ -92,8 +105,22 @@ export class TimerPage {
     this.controls = page.locator("#controls");
   }
 
-  /** Installs a paused fake clock at `time`, then loads the app. */
-  async open(time = MORNING) {
+  /**
+   * Installs a paused fake clock at `time`, then loads the app. Unless it's a
+   * `firstVisit`, it starts from STORED_CONFIG if nothing has been stored yet.
+   */
+  async open(time = MORNING, { firstVisit = false } = {}) {
+    if (!firstVisit) {
+      await this.page.addInitScript((config) => {
+        try {
+          if (localStorage.getItem("scheduled-timer:config") === null) {
+            localStorage.setItem("scheduled-timer:config", JSON.stringify(config));
+          }
+        } catch {
+          // Storage is blocked; the test is about that.
+        }
+      }, STORED_CONFIG);
+    }
     // Install a minute early: the clock runs until paused, and pausing at a
     // time it has already passed throws.
     await this.page.clock.install({ time: new Date(time.getTime() - MINUTE) });

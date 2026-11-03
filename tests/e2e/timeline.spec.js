@@ -260,7 +260,7 @@ test.describe("style timeline", () => {
     await timer.themeName.fill("Short");
     await timer.themeSave.click();
     await timer.themeSelect.selectOption({ label: "Default" });
-    expect(await times(timer)).toEqual(DEFAULT_TIMES);
+    expect(await times(timer)).toEqual(["10:00", "05:00", "00:30", "00:00"]);
     await timer.themeSelect.selectOption({ label: "Short" });
     expect(await times(timer)).toEqual(["10:00", "05:00", "00:00"]);
   });

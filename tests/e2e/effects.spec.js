@@ -1,4 +1,4 @@
-import { test, expect, MINUTE, SECOND } from "./fixtures.js";
+import { test, expect, MINUTE, MORNING, SECOND } from "./fixtures.js";
 
 const strobing = (timer) => expect(timer.page.locator("body")).toHaveClass(/effect-strobe/);
 const notStrobing = (timer) => expect(timer.page.locator("body")).not.toHaveClass(/effect-strobe/);
@@ -121,7 +121,10 @@ test.describe("effects", () => {
     await timer.open();
     await timer.storeConfig({
       durationMinutes: 1,
-      styles: [{ id: "active", effects: [{ id: "f", type: "fade", startSeconds: 20 }] }],
+      styles: [
+        { id: "active", effects: [{ id: "f", type: "fade", startSeconds: 20 }] },
+        { id: "wrap-it-up", enabled: false },
+      ],
     });
     await timer.page.reload();
     await timer.click(timer.startPause);
@@ -155,12 +158,38 @@ test.describe("effects", () => {
     expect(await timer.background()).toBe("rgb(77, 182, 31)");
     await timer.jump(MINUTE);
     expect(await timer.background()).toBe("rgb(137, 180, 21)");
-    expect(await textColor()).toBe("#8d8d8d");
+    // By now Wrap it up!'s dark text reads better than Active's white, with no grey between.
+    expect(await textColor()).toBe("#1a1a1a");
     await timer.jump(MINUTE);
     expect(await timer.background()).toBe("rgb(196, 178, 10)");
     await timer.jump(MINUTE);
     await timer.expectStyle("wrap-it-up");
     expect(await timer.background()).toBe("rgb(255, 176, 0)");
+  });
+
+  test("fades Wrap it up! into Overtime by default, in an hour's last tenth", async ({ timer }) => {
+    await timer.open(MORNING, { firstVisit: true });
+    await expect(timer.display).toHaveText("01:00:00");
+    await timer.click(timer.startPause);
+    const textColor = () => timer.page.evaluate(() => document.body.style.getPropertyValue("--style-fg"));
+
+    await timer.jump(54 * MINUTE - SECOND);
+    await timer.expectStyle("active");
+    await timer.jump(SECOND);
+    await timer.expectStyle("wrap-it-up");
+    expect(await timer.background()).toBe("rgb(255, 176, 0)");
+
+    // Wrap it up! is #ffb000 with #1a1a1a text; Overtime is #e5141b with white.
+    await timer.jump(3 * MINUTE);
+    await expect(timer.display).toHaveText("03:00");
+    expect(await timer.background()).toBe("rgb(242, 98, 14)");
+    expect(await textColor()).toBe("#1a1a1a");
+    await timer.jump(3 * MINUTE - SECOND);
+    expect(await textColor()).toBe("#ffffff");
+
+    await timer.jump(SECOND);
+    await timer.expectStyle("overtime");
+    expect(await timer.background()).toBe("rgb(229, 20, 27)");
   });
 
   test("holds a fade while paused, though a strobe on the same style stops", async ({ timer }) => {

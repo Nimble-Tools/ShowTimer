@@ -100,7 +100,7 @@ describe("nextOccurrence", () => {
 
 describe("formatClock", () => {
   it("formats the default duration", () => {
-    assert.equal(formatClock(DEFAULT_MINUTES * MINUTE), "05:00");
+    assert.equal(formatClock(DEFAULT_MINUTES * MINUTE), "01:00:00");
   });
 
   it("pads minutes and seconds", () => {

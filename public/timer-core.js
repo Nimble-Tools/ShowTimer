@@ -1,6 +1,6 @@
 // Pure timer logic with no DOM access, shared by app.js and the unit tests.
 
-export const DEFAULT_MINUTES = 5;
+export const DEFAULT_MINUTES = 60;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 // After reaching zero the timer counts into negative time, and stops once
 // it has been over time this long.

@@ -106,7 +106,7 @@ function builtInStyles() {
       name: "Wrap it up!",
       builtIn: true,
       enabled: true,
-      start: { minutes: 2, plusDuration: false },
+      start: { expression: "$duration / 10" },
       background: "#ffb000",
       color: "#1a1a1a",
       font: "sans",

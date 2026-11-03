@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { test, expect, MINUTE } from "./fixtures.js";
+import { test, expect, MINUTE, MORNING } from "./fixtures.js";
 
 /** A theme file as an export would write it. */
 function themeFile(name, styles, extra = {}) {
@@ -14,7 +14,7 @@ const darkActive = [{ id: "active", background: "#000000" }];
 
 test.describe("themes", () => {
   test("starts on the Default theme", async ({ timer }) => {
-    await timer.open();
+    await timer.open(MORNING, { firstVisit: true });
     await timer.openConfig();
     await expect(timer.themeSelect).toHaveValue("default");
     await expect(timer.themeSelect.locator("option:checked")).toHaveText("Default");
@@ -62,7 +62,7 @@ test.describe("themes", () => {
   });
 
   test("cancel discards theme changes", async ({ timer }) => {
-    await timer.open();
+    await timer.open(MORNING, { firstVisit: true });
     await timer.openConfig();
     await timer.themeName.fill("Temp");
     await timer.themeSave.click();
@@ -152,7 +152,7 @@ test.describe("themes", () => {
   });
 
   test("explains a file that isn't a theme", async ({ timer }) => {
-    await timer.open();
+    await timer.open(MORNING, { firstVisit: true });
     await timer.openConfig();
     await timer.themeFile.setInputFiles({ name: "x.json", mimeType: "application/json", buffer: Buffer.from("{oops") });
     await expect(timer.themeError).toHaveText("That file isn't valid JSON.");

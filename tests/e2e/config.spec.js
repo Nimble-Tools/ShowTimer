@@ -1,4 +1,4 @@
-import { test, expect, MINUTE, SECOND } from "./fixtures.js";
+import { test, expect, MINUTE, MORNING, SECOND } from "./fixtures.js";
 
 test.describe("configuration", () => {
   test("shows a configuration icon in the top right corner", async ({ page, timer }) => {
@@ -68,7 +68,7 @@ test.describe("configuration", () => {
 
   for (const value of ["0", "-3", "", "1441", "0.001"]) {
     test(`rejects a duration of "${value}"`, async ({ timer }) => {
-      await timer.open();
+      await timer.open(MORNING, { firstVisit: true });
       await timer.openConfig();
       await timer.configDuration.fill(value);
       await timer.configSave.click();
@@ -79,7 +79,7 @@ test.describe("configuration", () => {
       );
       await expect(timer.configDuration).toHaveAttribute("aria-invalid", "true");
       expect(await timer.storedConfig()).toBeNull();
-      await expect(timer.display).toHaveText("05:00");
+      await expect(timer.display).toHaveText("01:00:00");
     });
   }
 
@@ -107,19 +107,19 @@ test.describe("configuration", () => {
   });
 
   test("cancel and Escape discard changes", async ({ page, timer }) => {
-    await timer.open();
+    await timer.open(MORNING, { firstVisit: true });
     await timer.openConfig();
     await timer.configDuration.fill("30");
     await timer.configCancel.click();
     await expect(timer.configDialog).toBeHidden();
 
     await timer.openConfig();
-    await expect(timer.configDuration).toHaveValue("5");
+    await expect(timer.configDuration).toHaveValue("60");
     await timer.configDuration.fill("30");
     await page.keyboard.press("Escape");
     await expect(timer.configDialog).toBeHidden();
 
-    await expect(timer.display).toHaveText("05:00");
+    await expect(timer.display).toHaveText("01:00:00");
     expect(await timer.storedConfig()).toBeNull();
   });
 
@@ -193,12 +193,12 @@ test.describe("configuration", () => {
     await timer.open();
     await page.evaluate(() => localStorage.setItem("scheduled-timer:config", "{oops"));
     await page.reload();
-    await expect(timer.display).toHaveText("05:00");
+    await expect(timer.display).toHaveText("01:00:00");
   });
 
   test.describe("migrating the old duration cookie", () => {
     test("moves it into browser storage", async ({ page, timer }) => {
-      await timer.open();
+      await timer.open(MORNING, { firstVisit: true });
       await page.context().addCookies([{ name: "timerMinutes", value: "12", url: page.url() }]);
       await page.reload();
 
@@ -218,11 +218,11 @@ test.describe("configuration", () => {
     });
 
     test("discards an invalid cookie", async ({ page, timer }) => {
-      await timer.open();
+      await timer.open(MORNING, { firstVisit: true });
       await page.context().addCookies([{ name: "timerMinutes", value: "nope", url: page.url() }]);
       await page.reload();
 
-      await expect(timer.display).toHaveText("05:00");
+      await expect(timer.display).toHaveText("01:00:00");
       expect(await timer.storedConfig()).toBeNull();
       expect(await timer.cookie("timerMinutes")).toBeNull();
     });
@@ -253,7 +253,7 @@ test.describe("configuration", () => {
       });
     });
     await timer.open();
-    await expect(timer.display).toHaveText("05:00");
+    await expect(timer.display).toHaveText("01:00:00");
     await timer.openConfig();
     await timer.configDuration.fill("4");
     await timer.configSave.click();

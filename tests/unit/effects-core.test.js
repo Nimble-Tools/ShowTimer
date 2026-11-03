@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   EFFECT_TYPES,
   MAX_EFFECT_SECONDS,
+  contrastRatio,
   defaultEffects,
   describeEffect,
   effectState,
@@ -20,11 +21,17 @@ const strobe = (extra = {}) => ({ ...newEffect("s", "strobe"), ...extra });
 const fade = (extra = {}) => ({ ...newEffect("f", "fade"), ...extra });
 
 describe("default effects", () => {
-  it("strobes for 5 seconds when Overtime begins, and nothing else", () => {
+  it("strobes for 5 seconds when Overtime begins", () => {
     assert.deepEqual(defaultEffects("overtime"), [
       { id: "strobe", type: "strobe", enabled: true, startSeconds: 0, durationSeconds: 5 },
     ]);
     assert.deepEqual(defaultEffects("active"), []);
+  });
+
+  it("fades Wrap it up! for all of the style", () => {
+    assert.deepEqual(defaultEffects("wrap-it-up"), [
+      { id: "fade", type: "fade", enabled: true, startSeconds: 0, durationSeconds: 0 },
+    ]);
   });
 
   it("are part of the built-in styles", () => {
@@ -144,5 +151,29 @@ describe("mixColors / fadeStyle", () => {
     assert.equal(halfway.font, active.font);
     assert.equal(fadeStyle(active, overtime, 0), active);
     assert.equal(fadeStyle(active, null, 0.5), active);
+  });
+
+  it("measures contrast", () => {
+    assert.equal(contrastRatio("#000000", "#ffffff"), 21);
+    assert.equal(contrastRatio("#ffffff", "#000000"), 21);
+    assert.equal(contrastRatio("#123456", "#123456"), 1);
+  });
+
+  it("keeps the text readable all the way through the default fade into Overtime", () => {
+    const styles = defaultStyles();
+    const wrapUp = styles.find((s) => s.id === "wrap-it-up");
+    const overtime = styles.find((s) => s.id === "overtime");
+    for (let t = 0; t <= 1; t += 0.01) {
+      const { color, background } = fadeStyle(wrapUp, overtime, t);
+      assert.ok([wrapUp.color, overtime.color].includes(color), String(t));
+      assert.ok(contrastRatio(color, background) > 4, String(t));
+    }
+  });
+
+  it("ends on the next style's text color, even if the other reads better", () => {
+    const style = { background: "#000000", color: "#ffffff", sizePercent: 100 };
+    const next = { background: "#000000", color: "#222222", sizePercent: 100 };
+    assert.equal(fadeStyle(style, next, 0.99).color, "#ffffff");
+    assert.equal(fadeStyle(style, next, 1).color, "#222222");
   });
 });
