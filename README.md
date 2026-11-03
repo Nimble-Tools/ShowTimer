@@ -39,6 +39,12 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 - Controls and cursor hide while the timer is running and the mouse is idle.
 - A GitHub icon (top left) links to this repo, and stays hidden while the timer runs. Configuration links to the issues page for bugs and suggestions.
 
+## Configuration
+
+![configuration dialog](https://github.com/user-attachments/assets/d83916a0-d2fc-4368-be17-d406171dd7d0)
+
+Use the configuration dialog to set presentation time, choose or save a theme (a collection of styles), and visualize the styles that will be used for different time periods as the timer counts down.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 24 or later, with npm
