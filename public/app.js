@@ -223,7 +223,7 @@ function render() {
     els.display.style.setProperty("--chars", clock.length);
     fitDisplay();
   }
-  document.title = state.mode === "running" || state.mode === "paused" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
+  document.title = state.mode === "running" || state.mode === "paused" ? `${clock} · ShowTimer by NimbleTools` : "ShowTimer by NimbleTools";
 
   const baseStyle = renderStyle(now, remaining);
   renderSummary(now, baseStyle);

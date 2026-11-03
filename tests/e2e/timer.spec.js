@@ -7,7 +7,7 @@ test.describe("timer", () => {
     await timer.expectState("idle");
     await expect(timer.display).toHaveText("05:00");
     await expect(timer.status).toHaveText("");
-    await expect(page).toHaveTitle("Scheduled Timer");
+    await expect(page).toHaveTitle("ShowTimer by NimbleTools");
 
     const viewport = page.viewportSize();
     const box = await timer.display.boundingBox();
@@ -46,7 +46,7 @@ test.describe("timer", () => {
     await expect(timer.display).toHaveText("04:59");
     await timer.jump(2 * MINUTE);
     await expect(timer.display).toHaveText("02:59");
-    await expect(page).toHaveTitle("02:59 · Scheduled Timer");
+    await expect(page).toHaveTitle("02:59 · ShowTimer by NimbleTools");
   });
 
   test("counts down to zero, then into negative time", async ({ page, timer }) => {
@@ -70,7 +70,7 @@ test.describe("timer", () => {
 
     await timer.advance(SECOND);
     await expect(timer.display).toHaveText("-00:01");
-    await expect(page).toHaveTitle("-00:01 · Scheduled Timer");
+    await expect(page).toHaveTitle("-00:01 · ShowTimer by NimbleTools");
   });
 
   test("keeps counting over time", async ({ timer }) => {
@@ -123,7 +123,7 @@ test.describe("timer", () => {
     await timer.expectState("stopped");
     await expect(timer.display).toHaveText("-01:00:00");
     await expect(timer.status).toHaveText("Stopped after an hour over time.");
-    await expect(page).toHaveTitle("Scheduled Timer");
+    await expect(page).toHaveTitle("ShowTimer by NimbleTools");
 
     // It no longer counts.
     await timer.jump(10 * MINUTE);
