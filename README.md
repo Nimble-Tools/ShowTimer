@@ -111,3 +111,7 @@ To have Cloudflare deploy on every push instead:
 Pushes to `main` then deploy to production, and other branches and pull requests get preview URLs.
 
 To deploy from a CI job instead, create a Cloudflare API token with the **Cloudflare Pages: Edit** permission, set the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` environment variables, and run `npm run deploy`.
+
+## Similar Tools
+
+[AgendaDefender](https://agendadefender.app/) by Dylan Beattie
