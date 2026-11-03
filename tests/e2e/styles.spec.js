@@ -140,6 +140,35 @@ test.describe("styles on screen", () => {
     });
   }
 
+  // Issue #46: Caveat's digits lean past their box, and Safari left that
+  // overhang in the Inactive grey when Starting Soon turned the text white.
+  test("keeps the handwritten digits inside the readout's box", async ({ page, timer }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await timer.open();
+    await timer.scheduleAt("10:30", { minutes: 10 });
+    await timer.jump(30 * MINUTE - 8 * SECOND);
+    await timer.expectStyle("starting-soon");
+    await page.evaluate(() => document.fonts.load('700 100px "Caveat"'));
+    await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+    await expect(timer.display).toHaveText("10:00");
+
+    const ink = await timer.display.evaluate((el) => {
+      const css = getComputedStyle(el);
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = `${css.fontWeight} ${css.fontSize} ${css.fontFamily}`;
+      ctx.letterSpacing = css.letterSpacing;
+      ctx.fontVariantNumeric = css.fontVariantNumeric;
+      const m = ctx.measureText(el.textContent);
+      const text = m.width;
+      const content = el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight);
+      // Ink relative to the box, with the text centered in the content area.
+      const start = parseFloat(css.paddingLeft) + (content - text) / 2;
+      return { left: start - m.actualBoundingBoxLeft, right: start + m.actualBoundingBoxRight, box: el.clientWidth };
+    });
+    expect(ink.left).toBeGreaterThanOrEqual(0);
+    expect(ink.right).toBeLessThanOrEqual(ink.box);
+  });
+
   test("follows the duration: Starting Soon is duration + 5", async ({ timer }) => {
     await timer.open();
     await timer.setMinutes(20);
