@@ -11,6 +11,13 @@ const DEFAULT_TIMES = ["10:00", "05:00", "02:00", "00:00"];
 const section = (timer, id) => timer.timeline.locator(`[data-style-id="${id}"]`);
 const band = (timer, id) => section(timer, id).locator(".timeline-band");
 const sectionIds = (timer) => timer.timeline.locator("li").evaluateAll((items) => items.map((item) => item.dataset.styleId));
+const isOnArrow = async (timer, id) => {
+  const [name, shaft] = await Promise.all([
+    section(timer, id).locator(".timeline-name").boundingBox(),
+    band(timer, id).boundingBox(),
+  ]);
+  return name.y >= shaft.y && name.y + name.height <= shaft.y + shaft.height;
+};
 const times = async (timer) => (await timer.timeline.locator(".timeline-time").allTextContents()).filter(Boolean);
 
 test.describe("style timeline", () => {
@@ -100,6 +107,72 @@ test.describe("style timeline", () => {
     expect(soon).toBeGreaterThan(wrap);
     expect(over).toBeGreaterThan(soon);
     expect(over).toBeLessThan(wrap * 4);
+  });
+
+  test("puts names on the arrow in the font and color of their style", async ({ page, timer }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await timer.openConfig();
+    const name = (id) => section(timer, id).locator(".timeline-name");
+
+    // Whether "Wrap it up!" fits depends on how wide the system's sans serif is.
+    for (const id of ["inactive", "starting-soon", "active", "overtime"]) {
+      expect(await isOnArrow(timer, id)).toBe(true);
+    }
+    await expect(name("starting-soon")).toHaveCSS("font-family", /Caveat/);
+    await expect(name("starting-soon")).toHaveCSS("font-weight", "700");
+    await expect(name("overtime")).toHaveCSS("font-family", /Bangers/);
+    await expect(name("inactive")).toHaveCSS("color", "rgb(154, 163, 173)");
+    await expect(name("active")).toHaveCSS("color", "rgb(255, 255, 255)");
+
+    await timer.editStyle("Active");
+    await timer.styleColor.fill("#112233");
+    await timer.styleFont.selectOption("serif");
+    await timer.styleDone.click();
+    await expect(name("active")).toHaveCSS("color", "rgb(17, 34, 51)");
+    await expect(name("active")).toHaveCSS("font-family", /Georgia/);
+  });
+
+  test("keeps names clear of the break mark and arrowhead", async ({ page, timer }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await timer.openConfig();
+    const textBounds = (id) =>
+      section(timer, id).evaluate((item) => {
+        const range = document.createRange();
+        range.selectNodeContents(item.querySelector(".timeline-name"));
+        const { left, right } = range.getBoundingClientRect();
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const band = item.querySelector(".timeline-band").getBoundingClientRect();
+        return { fromStart: (left - band.left) / rem, fromEnd: (band.right - right) / rem };
+      });
+
+    expect((await textBounds("inactive")).fromStart).toBeGreaterThanOrEqual(1.29);
+    const overtime = await textBounds("overtime");
+    expect(overtime.fromStart).toBeGreaterThanOrEqual(1.29);
+    expect(overtime.fromEnd).toBeGreaterThanOrEqual(1.24);
+  });
+
+  test("keeps a name under the arrow when it wouldn't fit, or has no style", async ({ page, timer }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await timer.openConfig();
+    await timer.editStyle("Active");
+    await timer.styleName.fill("A much longer name than this section has room for");
+    await timer.styleDone.click();
+    expect(await isOnArrow(timer, "active")).toBe(false);
+    await expect(section(timer, "active").locator(".timeline-name")).toHaveCSS("color", await timer.configDialog.evaluate((dialog) => getComputedStyle(dialog).color));
+    expect(await isOnArrow(timer, "overtime")).toBe(true);
+
+    await timer.styleToggle("Inactive").uncheck();
+    expect(await isOnArrow(timer, "")).toBe(false);
+  });
+
+  test("measures names again when a font loads, as it can change their width", async ({ page, timer }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await timer.openConfig();
+    expect(await isOnArrow(timer, "overtime")).toBe(true);
+
+    await page.addStyleTag({ content: ".timeline-name { font-size: 5rem !important; }" });
+    await page.evaluate(() => document.fonts.dispatchEvent(new Event("loadingdone")));
+    expect(await isOnArrow(timer, "overtime")).toBe(false);
   });
 
   test("gives screen readers the whole timeline as text", async ({ timer }) => {
@@ -237,6 +310,19 @@ test.describe("style timeline at phone width", () => {
       })
     );
     expect(fits).toBe(true);
+  });
+
+  test("moves names under the arrow when the window narrows, and back when it widens", async ({ page, timer }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await timer.open();
+    await timer.openConfig();
+    expect(await isOnArrow(timer, "overtime")).toBe(true);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => isOnArrow(timer, "overtime")).toBe(false);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect.poll(() => isOnArrow(timer, "overtime")).toBe(true);
   });
 
   test("scrolls sideways rather than widening the dialog when there are too many", async ({ page, timer }) => {

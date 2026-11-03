@@ -527,12 +527,12 @@ function openConfig() {
   draft = loadConfig(storage);
   els.configDuration.value = formatDurationMinutes(draft.durationMinutes);
   els.configKeyboard.checked = draft.keyboardControl;
-  styleEditor.renderList();
   themePicker.reset();
   showDurationError("");
   els.configStorageError.hidden = true;
   els.configDurationPending.hidden = !(state.mode === "running" || state.mode === "paused");
   els.configDialog.showModal();
+  styleEditor.renderList(); // Once it's showing, as the timeline measures its names.
   els.configDuration.select();
 }
 

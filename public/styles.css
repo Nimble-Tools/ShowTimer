@@ -481,6 +481,7 @@ input[aria-invalid="true"] {
   flex: 1 0 3.25rem;
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 1.1rem 2.5rem auto;
   gap: 0.15rem;
   font-size: 0.75rem;
@@ -500,6 +501,8 @@ input[aria-invalid="true"] {
 
 /* An outline around the clipped band, so a style as dark as the dialog still shows. */
 .timeline-arrow {
+  grid-row: 2;
+  grid-column: 1;
   display: grid;
   filter: drop-shadow(0 1px 0 var(--muted)) drop-shadow(0 -1px 0 var(--muted)) drop-shadow(1px 0 0 var(--muted));
 }
@@ -533,7 +536,8 @@ input[aria-invalid="true"] {
 .timeline-band.is-cut::after {
   content: "";
   position: absolute;
-  inset: 0 auto 0 40%;
+  /* At the start, to leave the rest of the section for its name. */
+  inset: 0 auto 0 0.4rem;
   width: 0.5rem;
   background: #161a20;
   border-inline: 2px solid var(--fg);
@@ -549,6 +553,32 @@ input[aria-invalid="true"] {
   line-height: 1.2;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+/* A name that fits, on the shaft of the arrow as the style will show it. */
+.has-name-on-arrow .timeline-name {
+  position: relative;
+  grid-row: 2;
+  grid-column: 1;
+  align-self: center;
+  display: block;
+  padding-inline: 0.2rem;
+  color: var(--style-fg);
+  font-family: var(--style-font);
+  font-size: 0.8rem;
+  font-weight: var(--style-weight);
+  line-height: 1.5rem;
+  text-shadow: var(--style-shadow);
+  white-space: nowrap;
+}
+
+/* Clear of the break mark and the arrowhead. */
+.has-name-on-arrow:has(.is-cut) .timeline-name {
+  padding-left: 1.3rem;
+}
+
+.has-name-on-arrow:last-child .timeline-name {
+  padding-right: 1.25rem;
 }
 
 .style-list {
